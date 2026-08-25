@@ -1,0 +1,21 @@
+[workspace]
+authors = ["Nickolas K Freeman <nick.freeman524@gmail.com>"]
+channels = ["conda-forge"]
+name = "OM-522-Fall-2026-in-class"
+platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+lecture-20260825-edit = "marimo edit in-class-notebooks/20260825/marimo-test.py"
+lecture-20260825-check = "marimo check --strict in-class-notebooks/20260825/marimo-test.py"
+lecture-20260825-export = { cmd = "marimo export html in-class-notebooks/20260825/marimo-test.py --output in-class-notebooks/20260825/scheduling-dispatch-rules-summary.html --no-include-code --force", env = { MPLBACKEND = "Agg" } }
+
+[dependencies]
+python = ">=3.12,<3.15"
+polars = ">=1.43,<2"
+pyarrow = ">=25,<26"
+marimo = ">=0.24,<0.25"
+matplotlib = ">=3.10,<4"
+seaborn = ">=0.13,<0.14"
+numpy = ">=2.3,<3"
+jupyterlab = ">=4.4,<5"

@@ -1,0 +1,7 @@
+# Pixi environment
+.pixi/
+
+# Python and Marimo caches
+__pycache__/
+__marimo__/
+*.py[cod]

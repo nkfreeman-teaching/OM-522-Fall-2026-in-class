@@ -12,13 +12,14 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.patches import Patch
     import numpy as np
     import polars as pl
     import seaborn as sns
 
     sns.set_theme(style="whitegrid", context="notebook")
     plt.rcParams.update({"figure.dpi": 120, "savefig.bbox": "tight"})
-    return LinearSegmentedColormap, Path, math, mo, np, pl, plt, sns
+    return LinearSegmentedColormap, Patch, Path, math, mo, np, pl, plt, sns
 
 
 @app.cell
@@ -49,14 +50,15 @@ def _(mo):
 
 @app.cell
 def _(Path, pl):
-    project_root = Path(__file__).resolve().parents[1]
+    # Published notebooks are nested under in-class-notebooks/YYYYMMDD/.
+    project_root = Path(__file__).resolve().parents[2]
     data_path = project_root / "data" / "20260825-demo" / "production_jobs_30.csv"
     jobs = (
         pl.read_csv(data_path)
         .with_row_index("Original_Order", offset=1)
         .with_columns((4 - pl.col("Priority")).alias("Weight"))
     )
-    return data_path, jobs, project_root
+    return (jobs,)
 
 
 @app.cell
@@ -82,7 +84,7 @@ def _(jobs, mo):
         Sequencing changes when jobs finish—not the total workload—so makespan cannot distinguish these rules.</div>
         """
     )
-    return earliest_due, latest_due, total_work
+    return
 
 
 @app.cell
@@ -191,7 +193,8 @@ def _(math, pl):
             "Weighted_Tardiness": schedule["Weighted_Tardiness"].sum(),
             "Weighted_Flow_Time": (schedule["Weight"] * schedule["Completion"]).sum(),
         }
-    return choose_job, simulate, summarize
+
+    return simulate, summarize
 
 
 @app.cell
@@ -215,7 +218,7 @@ def _(jobs, pl, rule_catalog, simulate, summarize):
         .sort("Composite_Loss")
         .with_row_index("Overall_Rank", offset=1)
     )
-    return metrics, rule_names, schedules, score_metrics, scored
+    return rule_names, schedules, score_metrics, scored
 
 
 @app.cell
@@ -246,7 +249,7 @@ def _(mo, scored):
         when the operating objective changes.
         """
     )
-    return best, flow_winner, lateness_ties, lateness_winner, tardy_winner, weighted_winner
+    return
 
 
 @app.cell
@@ -259,7 +262,7 @@ def _(pl, scored):
         pl.col("Weighted_Tardiness").alias("Weighted tardiness"),
     )
     leaderboard
-    return (leaderboard,)
+    return
 
 
 @app.cell
@@ -284,18 +287,16 @@ def _(LinearSegmentedColormap, np, plt, score_metrics, scored, sns):
     ax_heat.set_ylabel("")
     fig_heat.tight_layout()
     fig_heat
-    return fig_heat, good_bad, heat_data, heat_labels, heat_metrics, ordered_rules
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        The heatmap rescales each column against the nine observed rules. Green means best **within this
-        experiment**, not universally optimal. LPT is retained as a useful adverse benchmark: deliberately
-        running long jobs first exposes how much flow time can deteriorate under a poor fit to the objective.
-        """
-    )
+    mo.md("""
+    The heatmap rescales each column against the nine observed rules. Green means best **within this
+    experiment**, not universally optimal. LPT is retained as a useful adverse benchmark: deliberately
+    running long jobs first exposes how much flow time can deteriorate under a poor fit to the objective.
+    """)
     return
 
 
@@ -306,17 +307,43 @@ def _(plt, scored):
     y = scored["Weighted_Tardiness"].to_numpy()
     sizes = 45 + 4 * scored["Tardy_Jobs"].to_numpy()
     colors = scored["Composite_Score"].to_numpy()
-    scatter = ax_trade.scatter(x, y, s=sizes, c=colors, cmap="viridis", edgecolor="white", linewidth=1.2)
+    scatter = ax_trade.scatter(
+        x=x,
+        y=y,
+        s=sizes,
+        c=colors,
+        cmap="viridis",
+        edgecolor="black",
+        linewidth=0.8,
+    )
+    label_offsets = {
+        "SPT": (5, -15),
+        "EDD": (5, -2),
+        "MS": (5, 11),
+        "CR": (5, 24),
+        "ATC": (5, -13),
+        "WSPT": (5, 7),
+    }
     for _trade_row in scored.iter_rows(named=True):
-        ax_trade.annotate(_trade_row["Rule"], (_trade_row["Avg_Flow_Time"], _trade_row["Weighted_Tardiness"]),
-                          xytext=(5, 5), textcoords="offset points", fontsize=9, weight="bold")
+        _offset = label_offsets.get(_trade_row["Rule"], (5, 5))
+        ax_trade.annotate(
+            text=_trade_row["Rule"],
+            xy=(
+                _trade_row["Avg_Flow_Time"],
+                _trade_row["Weighted_Tardiness"],
+            ),
+            xytext=_offset,
+            textcoords="offset points",
+            fontsize=9,
+            weight="bold",
+        )
     ax_trade.set_title("Efficiency versus priority-weighted due-date performance", loc="left", weight="bold", fontsize=14)
     ax_trade.set_xlabel("Average flow time  ← lower is better")
     ax_trade.set_ylabel("Weighted tardiness  ← lower is better")
     fig_trade.colorbar(scatter, ax=ax_trade, label="Composite score")
     fig_trade.tight_layout()
     fig_trade
-    return colors, fig_trade, scatter, sizes, x, y
+    return
 
 
 @app.cell
@@ -333,10 +360,15 @@ def _(np, plt, scored):
     ax_service.set_xlim(0, 30)
     ax_service.set_xlabel("Jobs")
     ax_service.set_title("Service level: number of jobs completed by the due date", loc="left", weight="bold", fontsize=14)
-    ax_service.legend(ncols=2, loc="lower right")
+    ax_service.legend(
+        ncols=2,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.13),
+        frameon=False,
+    )
     fig_service.tight_layout()
     fig_service
-    return fig_service, on_time, pos, rank_rules, tardy
+    return
 
 
 @app.cell
@@ -355,11 +387,11 @@ def _(mo, pl, schedules, selected_rule):
         pl.col("Tardiness"), pl.col("On_Time"),
     )
     mo.vstack([mo.md(f"**{selected_rule.value} sequence:** `{sequence_text}`"), sequence_table])
-    return chosen_schedule, sequence_table, sequence_text
+    return (chosen_schedule,)
 
 
 @app.cell
-def _(chosen_schedule, plt, selected_rule):
+def _(Patch, chosen_schedule, plt, selected_rule):
     product_colors = {"A": "#277da1", "B": "#43aa8b", "C": "#f9c74f", "D": "#f9844a"}
     fig_gantt, ax_gantt = plt.subplots(figsize=(11.5, 3.2))
     for _gantt_row in chosen_schedule.iter_rows(named=True):
@@ -370,36 +402,46 @@ def _(chosen_schedule, plt, selected_rule):
     ax_gantt.set_yticks([])
     ax_gantt.set_xlabel("Time")
     ax_gantt.set_title(f"{selected_rule.value} machine timeline (color = product)", loc="left", weight="bold", fontsize=14)
-    for product, color in product_colors.items():
-        ax_gantt.barh([], [], color=color, label=f"Product {product}")
-    ax_gantt.legend(ncols=4, loc="upper center", bbox_to_anchor=(.5, -.25), frameon=False)
+    legend_handles = [
+        Patch(
+            facecolor=color,
+            edgecolor="black",
+            label=f"Product {product}",
+        )
+        for product, color in product_colors.items()
+    ]
+    ax_gantt.legend(
+        handles=legend_handles,
+        ncols=4,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.25),
+        frameon=False,
+    )
     fig_gantt.tight_layout()
     fig_gantt
-    return fig_gantt, product_colors
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## What to use in practice
+    mo.md("""
+    ## What to use in practice
 
-        - Use **SPT** when fast throughput, low average flow time, and low WIP dominate. It can postpone long jobs.
-        - Use **EDD** when controlling the single worst lateness is the contractual objective. It does not explicitly minimize total tardiness.
-        - Use **WSPT** when priority-weighted completion time matters; it balances short work with important work.
-        - Use **ATC** when weighted tardiness is the operational concern. Its urgency changes as the clock advances.
-        - Use **CR or minimum slack** for a transparent dynamic due-date signal, but monitor instability when many jobs become overdue.
-        - Keep **FCFS** when simplicity and arrival-order fairness outweigh measurable performance gains.
+    - Use **SPT** when fast throughput, low average flow time, and low WIP dominate. It can postpone long jobs.
+    - Use **EDD** when controlling the single worst lateness is the contractual objective. It does not explicitly minimize total tardiness.
+    - Use **WSPT** when priority-weighted completion time matters; it balances short work with important work.
+    - Use **ATC** when weighted tardiness is the operational concern. Its urgency changes as the clock advances.
+    - Use **CR or minimum slack** for a transparent dynamic due-date signal, but monitor instability when many jobs become overdue.
+    - Keep **FCFS** when simplicity and arrival-order fairness outweigh measurable performance gains.
 
-        ### Limits and next experiment
+    ### Limits and next experiment
 
-        These conclusions are specific to one deterministic, single-machine job set. Release dates, uncertain
-        processing times, sequence-dependent product changeovers, machine downtime, and precedence constraints
-        can change the ranking. The most valuable extension would add a product-change setup matrix and compare
-        these policies over many randomly generated demand scenarios, reporting confidence intervals rather than
-        one-instance point estimates.
-        """
-    )
+    These conclusions are specific to one deterministic, single-machine job set. Release dates, uncertain
+    processing times, sequence-dependent product changeovers, machine downtime, and precedence constraints
+    can change the ranking. The most valuable extension would add a product-change setup matrix and compare
+    these policies over many randomly generated demand scenarios, reporting confidence intervals rather than
+    one-instance point estimates.
+    """)
     return
 
 
