@@ -24,7 +24,7 @@ dynamics, and decision-making under uncertainty.
 
 ## Repository contents
 
-Materials are organized by class date:
+The repository includes dated course materials and reusable utilities:
 
 ```text
 OM-522-Fall-2026-in-class/
@@ -35,6 +35,9 @@ OM-522-Fall-2026-in-class/
 │   └── 20260825/
 │       ├── marimo-test.py
 │       └── scheduling-dispatch-rules-summary.html
+├── sm-instance-generation/
+│   ├── generate_instances.py
+│   └── README.md
 ├── pixi.toml
 └── pixi.lock
 ```
@@ -79,6 +82,19 @@ pixi run lecture-20260825-export
 You can also use the underlying programs directly, for example
 `pixi run marimo edit ...` or `pixi run jupyter lab`. The named tasks above
 preserve the correct dated paths.
+
+## Single-machine instance generation
+
+The reusable single-machine generator creates reproducible Parquet instances
+with processing times, release times, due dates, weights, and optional setup
+times. Its settings appear in one configuration block inside the script.
+
+```bash
+pixi run sm-instance-generate
+```
+
+The [instance-generation guide](sm-instance-generation/README.md) describes
+the settings, output schemas, setup modes, and reproducibility behavior.
 
 In-class examples, notebooks, data, and supporting files will continue to be
 added throughout the semester. Materials may change as the course progresses.

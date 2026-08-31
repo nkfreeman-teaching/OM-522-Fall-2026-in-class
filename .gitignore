@@ -5,3 +5,6 @@
 __pycache__/
 __marimo__/
 *.py[cod]
+
+# Generated scheduling instances
+sm-instance-generation/generated-instances/

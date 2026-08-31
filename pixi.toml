@@ -9,6 +9,7 @@ version = "0.1.0"
 lecture-20260825-edit = "marimo edit in-class-notebooks/20260825/marimo-test.py"
 lecture-20260825-check = "marimo check --strict in-class-notebooks/20260825/marimo-test.py"
 lecture-20260825-export = { cmd = "marimo export html in-class-notebooks/20260825/marimo-test.py --output in-class-notebooks/20260825/scheduling-dispatch-rules-summary.html --no-include-code --force", env = { MPLBACKEND = "Agg" } }
+sm-instance-generate = "python sm-instance-generation/generate_instances.py"
 
 [dependencies]
 python = ">=3.12,<3.15"
