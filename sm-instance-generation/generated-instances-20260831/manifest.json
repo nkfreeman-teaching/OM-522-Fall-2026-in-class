@@ -1,0 +1,58 @@
+{
+  "generator": "generate_instances.py",
+  "instances": [
+    {
+      "instance_id": "instance_001",
+      "job_count": 50,
+      "jobs_file": "instance_001/jobs.parquet",
+      "setup_times_file": null
+    },
+    {
+      "instance_id": "instance_002",
+      "job_count": 50,
+      "jobs_file": "instance_002/jobs.parquet",
+      "setup_times_file": null
+    },
+    {
+      "instance_id": "instance_003",
+      "job_count": 50,
+      "jobs_file": "instance_003/jobs.parquet",
+      "setup_times_file": null
+    }
+  ],
+  "rng": {
+    "implementation": "random.Random",
+    "seed": 522
+  },
+  "schema_version": 1,
+  "settings": {
+    "due_date_rule": "release_time + processing_time + uniformly sampled slack",
+    "due_date_slack_range": [
+      0,
+      20
+    ],
+    "fixed_setup_time": 1,
+    "job_count": {
+      "fixed": 50,
+      "range": null
+    },
+    "number_of_instances": 3,
+    "processing_time_range": [
+      1,
+      10
+    ],
+    "release_time_range": [
+      0,
+      30
+    ],
+    "sequence_setup_time_range": [
+      0,
+      5
+    ],
+    "setup_mode": "none",
+    "weight_range": [
+      1,
+      5
+    ]
+  }
+}

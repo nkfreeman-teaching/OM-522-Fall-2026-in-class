@@ -50,10 +50,10 @@ class GenerationConfig:
 CONFIG = GenerationConfig(
     seed=522,
     number_of_instances=3,
-    number_of_jobs=10,
+    number_of_jobs=50,
     job_count_range=None,
     processing_time_range=(1, 10),
-    release_time_range=(0, 10),
+    release_time_range=(0, 30),
     weight_range=(1, 5),
     due_date_slack_range=(0, 20),
     setup_mode="none",
