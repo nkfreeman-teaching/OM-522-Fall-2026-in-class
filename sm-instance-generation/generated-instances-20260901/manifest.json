@@ -24,7 +24,7 @@
     "implementation": "random.Random",
     "seed": 522
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "settings": {
     "due_date_rule": "release_time + processing_time + uniformly sampled slack",
     "due_date_slack_range": [

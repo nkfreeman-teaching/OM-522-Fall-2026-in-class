@@ -18,7 +18,7 @@ runs the generator from the repository root:
 pixi run sm-instance-generate
 ```
 
-The default configuration generates three instances with ten jobs each and
+The default configuration generates three instances with 50 jobs each and
 seed `522`. Processing times, release times, weights, due-date slack, setup
 behavior, and the output location can all be changed in the same block.
 
@@ -47,7 +47,7 @@ All ranges are inclusive and integer-valued.
 | Setting | Meaning | Default |
 |---|---|---:|
 | `processing_time_range` | Minimum and maximum processing time | `(1, 10)` |
-| `release_time_range` | Minimum and maximum release time | `(0, 10)` |
+| `release_time_range` | Minimum and maximum release time | `(0, 30)` |
 | `weight_range` | Minimum and maximum job weight | `(1, 5)` |
 | `due_date_slack_range` | Minimum and maximum slack beyond release plus processing | `(0, 20)` |
 | `sequence_setup_time_range` | Minimum and maximum directed setup time | `(0, 5)` |
@@ -55,7 +55,7 @@ All ranges are inclusive and integer-valued.
 For job \(j\), the due date is generated as
 
 ```text
-Due_Date[j] = Release_Time[j] + Processing_Time[j] + sampled slack[j]
+due_date[j] = release_time[j] + processing_time[j] + sampled slack[j]
 ```
 
 Setup times are generated independently and do not change this due-date
@@ -68,9 +68,9 @@ The `setup_mode` setting accepts three values:
 
 | Mode | Generated data |
 |---|---|
-| `"none"` | `Fixed_Setup_Time` is zero and no setup table is written. |
+| `"none"` | `fixed_setup_time` is zero and no setup table is written. |
 | `"fixed"` | Every job receives the value from `fixed_setup_time`. |
-| `"sequence-dependent"` | `Fixed_Setup_Time` is zero and a directed setup table is written. |
+| `"sequence-dependent"` | `fixed_setup_time` is zero and a directed setup table is written. |
 
 The sequence-dependent table includes one initial setup arc from `START` to
 every job and one arc for every ordered pair of distinct jobs. It excludes
@@ -97,15 +97,15 @@ The jobs table has six columns:
 
 | Column | Type | Meaning |
 |---|---|---|
-| `Job` | String | Stable identifier such as `J001` |
-| `Processing_Time` | Integer | Nonpreemptive processing requirement |
-| `Release_Time` | Integer | Earliest time at which the job is available |
-| `Due_Date` | Integer | Target completion time |
-| `Weight` | Integer | Relative cost used by weighted objectives |
-| `Fixed_Setup_Time` | Integer | Constant setup time, or zero when inactive |
+| `job` | String | Stable identifier such as `J001` |
+| `processing_time` | Integer | Nonpreemptive processing requirement |
+| `release_time` | Integer | Earliest time at which the job is available |
+| `due_date` | Integer | Target completion time |
+| `weight` | Integer | Relative cost used by weighted objectives |
+| `fixed_setup_time` | Integer | Constant setup time, or zero when inactive |
 
-The sequence-dependent setup table contains `From_Job`, `To_Job`, and
-`Setup_Time`. Its long-form rows can be filtered directly or converted into a
+The sequence-dependent setup table contains `from_job`, `to_job`, and
+`setup_time`. Its long-form rows can be filtered directly or converted into a
 lookup dictionary.
 
 The manifest records the seed, generation settings, job counts, setup mode,
@@ -136,7 +136,7 @@ For a sequence-dependent instance, a setup lookup can be constructed with:
 ```python
 setup_times = pl.read_parquet(jobs_path.parent / "setup_times.parquet")
 setup_lookup = {
-    (row["From_Job"], row["To_Job"]): row["Setup_Time"]
+    (row["from_job"], row["to_job"]): row["setup_time"]
     for row in setup_times.iter_rows(named=True)
 }
 ```

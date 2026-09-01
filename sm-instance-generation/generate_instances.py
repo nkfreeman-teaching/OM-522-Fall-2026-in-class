@@ -12,18 +12,18 @@ IntegerRange = tuple[int, int]
 VALID_SETUP_MODES = frozenset({"none", "fixed", "sequence-dependent"})
 
 JOB_SCHEMA = {
-    "Job": pl.String,
-    "Processing_Time": pl.Int64,
-    "Release_Time": pl.Int64,
-    "Due_Date": pl.Int64,
-    "Weight": pl.Int64,
-    "Fixed_Setup_Time": pl.Int64,
+    "job": pl.String,
+    "processing_time": pl.Int64,
+    "release_time": pl.Int64,
+    "due_date": pl.Int64,
+    "weight": pl.Int64,
+    "fixed_setup_time": pl.Int64,
 }
 
 SETUP_SCHEMA = {
-    "From_Job": pl.String,
-    "To_Job": pl.String,
-    "Setup_Time": pl.Int64,
+    "from_job": pl.String,
+    "to_job": pl.String,
+    "setup_time": pl.Int64,
 }
 
 
@@ -199,12 +199,12 @@ def generate_jobs(
         due_date = release_time + processing_time + due_date_slack
         rows.append(
             {
-                "Job": job_id,
-                "Processing_Time": processing_time,
-                "Release_Time": release_time,
-                "Due_Date": due_date,
-                "Weight": weight,
-                "Fixed_Setup_Time": fixed_setup_time,
+                "job": job_id,
+                "processing_time": processing_time,
+                "release_time": release_time,
+                "due_date": due_date,
+                "weight": weight,
+                "fixed_setup_time": fixed_setup_time,
             }
         )
 
@@ -225,9 +225,9 @@ def generate_sequence_dependent_setups(
     for to_job in job_ids:
         rows.append(
             {
-                "From_Job": "START",
-                "To_Job": to_job,
-                "Setup_Time": sample_integer(rng, config.sequence_setup_time_range),
+                "from_job": "START",
+                "to_job": to_job,
+                "setup_time": sample_integer(rng, config.sequence_setup_time_range),
             }
         )
 
@@ -237,9 +237,9 @@ def generate_sequence_dependent_setups(
                 continue
             rows.append(
                 {
-                    "From_Job": from_job,
-                    "To_Job": to_job,
-                    "Setup_Time": sample_integer(rng, config.sequence_setup_time_range),
+                    "from_job": from_job,
+                    "to_job": to_job,
+                    "setup_time": sample_integer(rng, config.sequence_setup_time_range),
                 }
             )
 
@@ -322,7 +322,7 @@ def generate_batch(config: GenerationConfig) -> Path:
             setup_times = generate_sequence_dependent_setups(
                 config=config,
                 rng=rng,
-                job_ids=jobs["Job"].to_list(),
+                job_ids=jobs["job"].to_list(),
             )
             setup_path = instance_directory / "setup_times.parquet"
             setup_times.write_parquet(setup_path, compression="zstd")
@@ -338,7 +338,7 @@ def generate_batch(config: GenerationConfig) -> Path:
         )
 
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generator": "generate_instances.py",
         "rng": {
             "implementation": "random.Random",
