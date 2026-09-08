@@ -9,6 +9,9 @@ version = "0.1.0"
 lecture-20260825-edit = "marimo edit in-class-notebooks/20260825/marimo-test.py"
 lecture-20260825-check = "marimo check --strict in-class-notebooks/20260825/marimo-test.py"
 lecture-20260825-export = { cmd = "marimo export html in-class-notebooks/20260825/marimo-test.py --output in-class-notebooks/20260825/scheduling-dispatch-rules-summary.html --no-include-code --force", env = { MPLBACKEND = "Agg" } }
+lecture-20260908-edit = "marimo edit in-class-notebooks/20260908/critical-ratio.py"
+lecture-20260908-check = "marimo check --strict in-class-notebooks/20260908/critical-ratio.py"
+lecture-20260908-export = "marimo export html in-class-notebooks/20260908/critical-ratio.py --output in-class-notebooks/20260908/critical-ratio.html --force"
 sm-instance-generate = "python sm-instance-generation/generate_instances.py"
 
 [dependencies]

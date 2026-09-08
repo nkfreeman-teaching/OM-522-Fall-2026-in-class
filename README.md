@@ -32,9 +32,13 @@ OM-522-Fall-2026-in-class/
 │   └── 20260825-demo/
 │       └── production_jobs_30.csv
 ├── in-class-notebooks/
-│   └── 20260825/
-│       ├── marimo-test.py
-│       └── scheduling-dispatch-rules-summary.html
+│   ├── 20260825/
+│   │   ├── marimo-test.py
+│   │   └── scheduling-dispatch-rules-summary.html
+│   └── 20260908/
+│       ├── critical-ratio.py
+│       ├── critical-ratio.html
+│       └── pseudocode.png
 ├── sm-instance-generation/
 │   ├── generate_instances.py
 │   └── README.md
@@ -82,6 +86,23 @@ pixi run lecture-20260825-export
 You can also use the underlying programs directly, for example
 `pixi run marimo edit ...` or `pixi run jupyter lab`. The named tasks above
 preserve the correct dated paths.
+
+## September 8 notebook commands
+
+The September 8 notebook implements the dynamic critical-ratio dispatching
+rule on the first generated single-machine instance. Run these commands from
+the repository root:
+
+```bash
+# Open the notebook in the Marimo editor.
+pixi run lecture-20260908-edit
+
+# Check the notebook without changing it.
+pixi run lecture-20260908-check
+
+# Rebuild the static HTML notebook.
+pixi run lecture-20260908-export
+```
 
 ## Single-machine instance generation
 
