@@ -1,0 +1,12 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+# Python and test caches
+__pycache__/
+__marimo__/
+.pytest_cache/
+*.py[cod]
+
+# Generated notebook exports
+*.html

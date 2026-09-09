@@ -35,10 +35,18 @@ OM-522-Fall-2026-in-class/
 │   ├── 20260825/
 │   │   ├── marimo-test.py
 │   │   └── scheduling-dispatch-rules-summary.html
-│   └── 20260908/
-│       ├── critical-ratio.py
-│       ├── critical-ratio.html
-│       └── pseudocode.png
+│   ├── 20260908/
+│   │   ├── critical-ratio.py
+│   │   ├── critical-ratio.html
+│   │   └── pseudocode.png
+│   └── TSP/
+│       ├── data/
+│       ├── tests/
+│       ├── tsp_demo.py
+│       ├── tsp_utils.py
+│       ├── README.md
+│       ├── pixi.toml
+│       └── pixi.lock
 ├── sm-instance-generation/
 │   ├── generate_instances.py
 │   └── README.md
@@ -103,6 +111,23 @@ pixi run lecture-20260908-check
 # Rebuild the static HTML notebook.
 pixi run lecture-20260908-export
 ```
+
+## Traveling salesman demo
+
+The traveling salesman problem (TSP) demo is a self-contained project with 439
+anonymized facility locations, a complete road-distance table, plotting
+utilities, and a Marimo notebook. Run its commands from the `TSP` directory:
+
+```bash
+cd in-class-notebooks/TSP
+pixi install
+pixi run demo
+pixi run check
+pixi run test
+```
+
+The [TSP guide](in-class-notebooks/TSP/README.md) describes the data and the
+general symmetric TSP represented by the instance.
 
 ## Single-machine instance generation
 
