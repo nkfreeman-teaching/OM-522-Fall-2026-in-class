@@ -111,11 +111,14 @@ def test_clean_course_data() -> None:
     locations = pl.read_parquet("data/store_locations.parquet")
     road_distances = pl.read_parquet("data/road_distances.parquet")
 
-    assert locations.shape == (439, 3)
+    assert locations.shape == (439, 6)
     assert locations.get_column("store").n_unique() == 439
     assert locations.select(
         pl.struct(["latitude", "longitude"]).n_unique()
     ).item() == 439
+    for column in ("city", "state", "zip"):
+        assert locations.get_column(column).null_count() == 0
+    assert locations.get_column("state").n_unique() == 10
     assert road_distances.shape == (192_721, 3)
     assert road_distances.select(
         pl.struct(["store1", "store2"]).n_unique()

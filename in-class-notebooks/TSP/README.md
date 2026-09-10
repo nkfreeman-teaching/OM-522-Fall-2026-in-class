@@ -11,6 +11,9 @@ This project provides a larger geographic instance for demonstrating the traveli
 | `store` | string | Anonymized location ID |
 | `latitude` | float | Latitude in decimal degrees |
 | `longitude` | float | Longitude in decimal degrees |
+| `city` | string | City name as recorded in the source file |
+| `state` | string | Two-letter state abbreviation |
+| `zip` | integer | Five-digit ZIP code |
 
 `data/road_distances.parquet` contains:
 
@@ -20,7 +23,9 @@ This project provides a larger geographic instance for demonstrating the traveli
 | `store2` | string | Destination location ID |
 | `distance_miles` | float | Pairwise road distance in miles |
 
-The original course files contained 440 rows. `L363` was removed because it had the same coordinates and distance vector as `L355`, including a zero-mile edge between the two IDs. Descriptive city, state, and ZIP fields were removed because several combinations were internally inconsistent and they are unnecessary for the TSP demonstration.
+The original course files contained 440 rows. `L363` was removed because it had the same coordinates and distance vector as `L355`, including a zero-mile edge between the two IDs, and it remains removed.
+
+The descriptive `city`, `state`, and `zip` fields were dropped in an earlier cleaning pass and have since been restored by joining the 439 retained IDs back to the original course file on `store`. Coordinates were identical across every matched row, so the join changed no geometry. One row carries a manual correction: `L424` has ZIP 31788 and coordinates in south Georgia but was labeled city "White House", state "TN" in the source. Its `state` was set to `GA` so that all 439 rows fall inside the state they are plotted in, while its `city` value was left as recorded. Treat `city` as the least reliable of the three descriptive fields.
 
 The inherited files did not include collection provenance or a unit field. The earlier assignment described a 400-mile road-distance constraint, and comparisons with straight-line distances are consistent with road miles. Thus, `distance_miles` is the best-supported interpretation rather than independently recovered metadata.
 
