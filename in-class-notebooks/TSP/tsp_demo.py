@@ -47,16 +47,6 @@ def _(road_distances):
     return
 
 
-@app.cell
-def _(road_distances):
-    dm = {}
-    for _entry in road_distances.to_dicts():
-        dm[(_entry['store1'], _entry['store2'])] = _entry['distance_miles']
-
-    dm[('L5', 'L1')]
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
