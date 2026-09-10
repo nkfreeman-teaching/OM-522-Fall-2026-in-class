@@ -10,11 +10,13 @@ def _():
 
     from pathlib import Path
 
+    import numpy as np
     import polars as pl
+    from tqdm.auto import tqdm
 
     from tsp_utils import calculate_tour_distance, plot_locations
 
-    return Path, calculate_tour_distance, mo, pl, plot_locations
+    return Path, calculate_tour_distance, mo, np, pl, plot_locations, tqdm
 
 
 @app.cell(hide_code=True)
@@ -22,9 +24,9 @@ def _(mo):
     mo.md(r"""
     # OM 522 Traveling Salesman Demo
 
-    This notebook uses 439 southeastern facility locations to demonstrate how a
-    tour is represented, plotted, and measured. The route lines close back to
-    their starting locations automatically.
+    This notebook uses 127 facility locations in Alabama, Georgia, and
+    Mississippi to demonstrate how a tour is constructed, plotted, and
+    measured. The route closes back to its starting location automatically.
     """)
     return
 
@@ -36,15 +38,20 @@ def _(Path, pl):
     road_distances = pl.read_parquet(
         project_root / "data" / "road_distances.parquet"
     )
+    locations = locations.filter(
+        pl.col("state").is_in(["AL", "GA", "MS"]),
+    )
 
     locations.head()
-    return locations, road_distances
 
+    N = set(locations["store"].to_list())
 
-@app.cell
-def _(road_distances):
-    road_distances.head()
-    return
+    # Restrict the distance table before repeatedly searching it in the loop.
+    road_distances = road_distances.filter(
+        pl.col("store1").is_in(N),
+        pl.col("store2").is_in(N),
+    )
+    return N, locations, road_distances
 
 
 @app.cell(hide_code=True)
@@ -69,99 +76,68 @@ def _(locations, plot_locations):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## One tour
-
-    A flat list represents one tour. The final return to `L424` is added by both
-    utility functions.
-    """)
-    return
-
-
 @app.cell
-def _(locations, pl, plot_locations):
-    single_tour = ["L424", "L263", "L262", "L278", "L277"]
+def _(
+    N,
+    calculate_tour_distance,
+    locations,
+    np,
+    pl,
+    plot_locations,
+    road_distances,
+    tqdm,
+):
+    shortest_tour_length = np.inf
+    best_tour = None
 
-    single_tour_locations = locations.filter(
-        pl.col("store").is_in(single_tour)
-    )
-    _single_figure, _single_axes = plot_locations(
-        locations=single_tour_locations,
-        tours=single_tour,
-        figsize=(6, 4),
-    )
-    _single_figure
-    return (single_tour,)
+    # Sorting makes the all-starts search reproducible across Python processes.
+    for seed_location in tqdm(sorted(N)):
+        tour = []
+        U = set(N)  # Copy N because locations are removed from U below.
+        origin = seed_location
 
+        tour.append(origin)
+        U.remove(origin)
 
-@app.cell
-def _(calculate_tour_distance, road_distances, single_tour):
-    single_tour_miles = calculate_tour_distance(
-        tour=single_tour,
-        road_distances=road_distances,
-    )
-    print(f"Closed-tour distance: {single_tour_miles:,.1f} miles")
-    return
+        while len(U) > 0:
+            # Greedily select the closest unvisited destination. Store ID
+            # provides a deterministic secondary key for equal distances.
+            destination = (
+                road_distances
+                .filter(
+                    pl.col("store1") == origin,
+                    pl.col("store2").is_in(U),
+                )
+                .sort(
+                    by=["distance_miles", "store2"],
+                    descending=False,
+                )
+                .item(
+                    row=0,
+                    column="store2",
+                )
+            )
+            tour.append(destination)
+            U.remove(destination)
+            origin = destination
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Multiple tours
-
-    A nested list represents one tour per vehicle. Each sublist closes back to
-    its own starting location.
-    """)
-    return
-
-
-@app.cell
-def _(locations, pl, plot_locations):
-    vehicle_tours = [
-        ["L355", "L356", "L337", "L352", "L339"],
-        ["L424", "L263", "L262", "L278", "L277"],
-    ]
-
-    vehicle_store_ids = [
-        store_id
-        for tour in vehicle_tours
-        for store_id in tour
-    ]
-    vehicle_locations = locations.filter(
-        pl.col("store").is_in(vehicle_store_ids)
-    )
-    _vehicle_figure, _vehicle_axes = plot_locations(
-        locations=vehicle_locations,
-        tours=vehicle_tours,
-        figsize=(6, 4),    
-    )
-    _vehicle_figure
-    return (vehicle_tours,)
-
-
-@app.cell
-def _(calculate_tour_distance, road_distances, vehicle_tours):
-    vehicle_distances = [
-        calculate_tour_distance(
+        # calculate_tour_distance includes the final return to the seed.
+        tour_length = calculate_tour_distance(
             tour=tour,
             road_distances=road_distances,
         )
-        for tour in vehicle_tours
-    ]
+        if tour_length < shortest_tour_length:
+            shortest_tour_length = tour_length
+            best_tour = list(tour)
+            print(
+                f" - Happy days!!! Location {seed_location} yields a better tour!!!"
+            )
 
-    for _number, _tour in enumerate(vehicle_tours, start=1):
-        _distance = calculate_tour_distance(
-            tour=_tour,
-            road_distances=road_distances,
-        )
-        print(f"- Vehicle {_number}: {_distance:,.1f} miles")    
-    return
-
-
-@app.cell
-def _():
+    plot_locations(
+        locations=locations,
+        tours=best_tour,
+        figsize=(6, 4),
+    )
     return
 
 
