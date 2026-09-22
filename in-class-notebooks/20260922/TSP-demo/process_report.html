@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OM 522 route lab: build and two visual reviews</title>
+  <style>
+    :root { color-scheme: light; --ink:#17324b; --teal:#087e83; --orange:#d36b3d; --line:#dbe6e4; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f7f9f8; color:var(--ink); font:16px/1.55 Arial, sans-serif; }
+    main { max-width:1080px; margin:auto; padding:36px 24px 70px; }
+    h1,h2 { letter-spacing:-.025em; line-height:1.2; }
+    h1 { font-size:2.2rem; margin:.3rem 0 1rem; }
+    h2 { font-size:1.35rem; margin:2.2rem 0 .8rem; }
+    p { max-width:78ch; }
+    .eyebrow { color:var(--teal); font-size:.78rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
+    .lede { font-size:1.12rem; max-width:74ch; }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:22px 0; }
+    .card, .panel { background:white; border:1px solid var(--line); border-radius:12px; }
+    .card { padding:16px; }
+    .card strong { display:block; font-size:1.7rem; line-height:1.2; }
+    .card span { color:#536b76; font-size:.9rem; }
+    .panel { padding:20px; margin:16px 0; }
+    ol { padding-left:1.4rem; }
+    li { margin:.55rem 0; }
+    table { width:100%; border-collapse:collapse; font-size:.93rem; }
+    th,td { text-align:left; vertical-align:top; padding:10px 9px; border-bottom:1px solid var(--line); }
+    th { background:#eaf2f1; }
+    tr:last-child td { border-bottom:0; }
+    .table-wrap { overflow-x:auto; }
+    .score { text-align:center; font-variant-numeric:tabular-nums; }
+    .bar-row { display:grid; grid-template-columns:150px 1fr 42px; gap:12px; align-items:center; margin:12px 0; }
+    .bar-track { background:#e8efee; border-radius:6px; height:22px; overflow:hidden; }
+    .bar { height:100%; background:var(--teal); }
+    .bar.first { background:var(--orange); }
+    .gallery { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:18px 0; }
+    .gallery figure { margin:0; }
+    .gallery img { display:block; width:100%; border:1px solid var(--line); border-radius:10px; }
+    .gallery figcaption { margin-top:7px; color:#536b76; font-size:.88rem; }
+    .muted { color:#536b76; font-size:.9rem; }
+    a { color:#086d73; }
+    @media (max-width:850px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:700px) { .cards, .gallery { grid-template-columns:1fr; } main { padding:24px 16px 50px; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">OM 522 traveling salesman demonstration</div>
+  <h1>Route lab build and review</h1>
+  <p class="lede">The work converted the existing notebook procedure into a local classroom app. A second review used Chrome screenshots and direct interaction to revise the layout after the first code-based review missed visual problems.</p>
+
+  <div class="cards" aria-label="Final verification summary">
+    <div class="card"><strong>439</strong><span>Facilities supported across ten states</span></div>
+    <div class="card"><strong>3.02 s</strong><span>Measured ten-state solve on this machine</span></div>
+    <div class="card"><strong>22 passed</strong><span>Final Pixi test result</span></div>
+    <div class="card"><strong>4.25 / 5</strong><span>Final browser review mean</span></div>
+  </div>
+
+  <h2>Build and correctness check</h2>
+  <div class="panel">
+    <ol>
+      <li>The starting repo contained 439 locations, 192,721 ordered road distances, a marimo notebook, and 11 passing utility tests. The notebook chose the shortest nearest-neighbor tour across all starting facilities and then sampled subsequence reversals until 10,000 consecutive candidates failed to improve it.</li>
+      <li>The initial build added <a href="tsp_solver.py">an indexed solver</a> and <a href="tsp_app.py">a Streamlit dashboard</a>. The solver precomputes the distance matrix and ranked neighbors, evaluates symmetric reversal changes from four affected edges, and recalculates the full distance before accepting a move. The app provides state selection, adjustable seed and stopping limit, live progress, a local interactive map, and a distance-history chart.</li>
+      <li>Two independent agents reviewed correctness and performance, each scoring its assigned dimension 4 out of 5. The correctness review found that the optimized reversal check required unique road pairs and a symmetric distance table. The loader now checks those properties. The performance review measured 0.795 seconds for the default 194-facility selection and 2.733 seconds for all 439 facilities. A proposed random-sampling optimization was left alone because the measured runtime was well inside the one-minute classroom target.</li>
+    </ol>
+  </div>
+
+  <h2>First visual and usability review</h2>
+  <p>Two agents independently scored four dimensions from 1 to 5. The first review found a Streamlit duplicate-key error in the live chart. The main agent reproduced the error in AppTest, assigned unique keys to successive chart updates, and made the app test fail on displayed errors. The same revision added a short heuristic explanation, state labels, more room for the map legend, a two-column metric layout, and an ordered-stop table.</p>
+  <div class="panel">
+    <div class="bar-row"><span>First review</span><div class="bar-track"><div class="bar first" style="width:70%"></div></div><strong>3.5</strong></div>
+    <div class="bar-row"><span>Second review</span><div class="bar-track"><div class="bar" style="width:90%"></div></div><strong>4.5</strong></div>
+    <p class="muted">Bars show the mean across both agents and all four dimensions on a zero-to-five scale.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Review</th><th>Agent</th><th class="score">Clarity</th><th class="score">Visual</th><th class="score">Interaction</th><th class="score">Classroom</th></tr></thead>
+        <tbody>
+          <tr><td>First</td><td>Usability</td><td class="score">4</td><td class="score">4</td><td class="score">2</td><td class="score">2</td></tr>
+          <tr><td>First</td><td>Visual</td><td class="score">4</td><td class="score">4</td><td class="score">4</td><td class="score">4</td></tr>
+          <tr><td>Second</td><td>Usability</td><td class="score">5</td><td class="score">4</td><td class="score">5</td><td class="score">4</td></tr>
+          <tr><td>Second</td><td>Visual</td><td class="score">5</td><td class="score">4</td><td class="score">4</td><td class="score">5</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Each row records one independent agent score for its review.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Dimension</th><th class="score">First review mean</th><th class="score">Second review mean</th></tr></thead>
+        <tbody>
+          <tr><td>Clarity</td><td class="score">4.0</td><td class="score">5.0</td></tr>
+          <tr><td>Visual quality</td><td class="score">4.0</td><td class="score">4.0</td></tr>
+          <tr><td>Interaction</td><td class="score">3.0</td><td class="score">4.5</td></tr>
+          <tr><td>Classroom usefulness</td><td class="score">3.0</td><td class="score">4.5</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p>The second review found no serious blocker, and every dimension averaged at least 4. The agreed stopping rule ended the review after two rounds. Remaining suggestions were optional refinements: connect a selected stop to its map marker, position state labels more carefully, and add the closing return to the ordered table.</p>
+
+  <h2>First effort: agent work and measurement</h2>
+  <p>Four distinct subagents completed six review assignments: two correctness and performance checks, followed by two visual and usability checks in each of two rounds. The observed build-and-review window ran from the first solver file at 13:45:32 UTC to the recorded test and notebook checks at 13:59:27 UTC, a span of 13 minutes and 55 seconds. Total process time cannot be measured from the available timestamps because initial exploration and later report edits fall outside that window.</p>
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Model</th><th>Work completed</th><th>Time evidence</th><th>Tokens</th></tr></thead>
+      <tbody>
+        <tr><td>Main agent</td><td>Exact model unavailable</td><td>Implemented the app and solver, verified review findings, fixed the chart error, added tests, and compiled this report.</td><td>Observed build-and-review window: 13 minutes, 55 seconds.</td><td>Unavailable</td></tr>
+        <tr><td>Correctness reviewer (<code>correctness_review</code>)</td><td>gpt-5.6-sol</td><td>Checked algorithm behavior, input assumptions, selection, and map projection.</td><td>Dispatched at 13:49:37 UTC. Full elapsed time unavailable.</td><td>Unavailable</td></tr>
+        <tr><td>Performance reviewer (<code>performance_review</code>)</td><td>gpt-5.6-sol</td><td>Benchmarked both instance sizes and map generation.</td><td>Dispatched at 13:49:37 UTC. Reported about 35 seconds.</td><td>Unavailable</td></tr>
+        <tr><td>Usability reviewer (<code>ux_round1</code>)</td><td>gpt-5.6-luna</td><td>Found the live-chart failure in the first review and verified its repair in the second.</td><td>Reviews dispatched at 13:51:26 and 13:55:53 UTC. Full elapsed time unavailable.</td><td>Unavailable</td></tr>
+        <tr><td>Visual reviewer (<code>visual_round1</code>)</td><td>gpt-5.6-luna</td><td>Checked map and chart structure, legibility, interaction, and classroom layout in two reviews.</td><td>Reviews dispatched at 13:51:26 and 13:55:53 UTC. Reported 7.3 seconds of targeted checks in the second review.</td><td>Unavailable</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">The agent runtime did not expose token counts or complete per-agent wall times. No token estimates were substituted for measured usage. The time entries distinguish recorded dispatch times from agent-reported check durations.</p>
+
+  <h2>Checks after the first effort</h2>
+  <p><code>pixi run test</code> passed 22 tests, and <code>pixi run check</code> passed the existing marimo check. Streamlit AppTest completed the default route and an Arkansas run with changed settings without displayed errors. The ten-state run evaluated 206,149 candidates, accepted 178 improvements, and reduced the tour from 14,132.68 to 12,298.04 road miles in 3.02 seconds. Its map trace had 440 points, including the return to the first facility.</p>
+  <p>The connected browser inventory was empty during the first effort, so its visual review used AppTest and Plotly figure inspection without a rendered page. The second effort below addresses that limitation with local Chrome screenshots and interaction checks.</p>
+
+  <h2>Second effort: browser review and revisions</h2>
+  <p>The second effort inspected the loaded selection view, completed route, distance history, and 768-pixel layout in Chrome. The initial browser review found that the expanded sidebar crowded the narrow map, red controls competed with the orange tour, four large metric cards delayed the map, and the header text sat under Streamlit's toolbar. Browser interaction also exposed a map resize error: closing the sidebar expanded Plotly's axis ranges and reduced the route to a small region within the panel.</p>
+  <p>The revisions set a teal Streamlit theme, collapsed the sidebar automatically on narrow screens, moved advanced settings into an expander, and led the result with the improved distance and percent reduction. The map now constrains its drawing area while preserving geographic ranges, so it fills the available width after the sidebar closes. A shorter introduction, a labeled narrow-screen settings control, larger history-chart text, and a final-distance label completed the third review round. Chrome confirmed that the map's Zoom in control changes the x-axis range.</p>
+  <div class="gallery" aria-label="Browser screenshots before and after the second review">
+    <figure><a href="report_images/previous_result.png"><img src="report_images/previous_result.png" alt="Previous desktop result with red controls and four large metric cards"></a><figcaption>Previous desktop result. Open the image for full-size text.</figcaption></figure>
+    <figure><a href="report_images/revised_result.png"><img src="report_images/revised_result.png" alt="Revised desktop result with teal controls and a shorter route summary"></a><figcaption>Revised desktop result. The route begins higher on the page.</figcaption></figure>
+  </div>
+  <p><a href="report_images/revised_narrow.png">The revised 768-pixel result</a> shows the wider map and the visible Route settings control.</p>
+  <div class="panel">
+    <div class="bar-row"><span>Browser baseline</span><div class="bar-track"><div class="bar first" style="width:57.5%"></div></div><strong>2.9</strong></div>
+    <div class="bar-row"><span>Second round</span><div class="bar-track"><div class="bar" style="width:80%"></div></div><strong>4.0</strong></div>
+    <div class="bar-row"><span>Third round</span><div class="bar-track"><div class="bar" style="width:85%"></div></div><strong>4.3</strong></div>
+    <p class="muted">The plotted means are 2.875, 4.000, and 4.250 before rounding. Each mean combines two reviewers and four dimensions on a zero-to-five scale.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Round</th><th>Reviewer</th><th class="score">Clarity</th><th class="score">Visual</th><th class="score">Interaction</th><th class="score">Classroom</th></tr></thead>
+        <tbody>
+          <tr><td>Browser baseline</td><td>Classroom</td><td class="score">3</td><td class="score">2</td><td class="score">3</td><td class="score">3</td></tr>
+          <tr><td>Browser baseline</td><td>Design</td><td class="score">3</td><td class="score">3</td><td class="score">3</td><td class="score">3</td></tr>
+          <tr><td>Second</td><td>Classroom</td><td class="score">4</td><td class="score">4</td><td class="score">4</td><td class="score">4</td></tr>
+          <tr><td>Second</td><td>Design</td><td class="score">4</td><td class="score">4</td><td class="score">4</td><td class="score">4</td></tr>
+          <tr><td>Third</td><td>Classroom</td><td class="score">5</td><td class="score">4</td><td class="score">4</td><td class="score">5</td></tr>
+          <tr><td>Third</td><td>Design</td><td class="score">4</td><td class="score">4</td><td class="score">4</td><td class="score">4</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p>The third round found no blocker or remaining material issue. Dense facility clusters still require zoom or hover to inspect individual stops, which the map supports.</p>
+
+  <h2>Second effort: agents and measurement</h2>
+  <p>Two distinct subagents completed six visual review assignments across three rounds. The observed browser-to-final-check window ran from 14:05:20 to 14:20:25 UTC on 2026-09-22, a span of 15 minutes and 5 seconds. Initial turn setup falls outside that measured window. The runtime did not expose token counts or complete subagent wall times.</p>
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Model</th><th>Work completed</th><th>Dispatch times (UTC)</th><th>Tokens</th></tr></thead>
+      <tbody>
+        <tr><td>Main agent</td><td>Exact model unavailable</td><td>Inspected Chrome desktop and narrow views, tested route and map zoom interactions, implemented revisions, ran checks, and updated this report.</td><td>Observed browser-to-final-check window: 15 minutes, 5 seconds.</td><td>Unavailable</td></tr>
+        <tr><td>Classroom reviewer (<code>classroom_round1</code>)</td><td>gpt-5.6-sol</td><td>Reviewed the teaching sequence, route comparison, and projection readability in all three rounds.</td><td>14:07:38, 14:14:56, 14:17:40</td><td>Unavailable</td></tr>
+        <tr><td>Design reviewer (<code>design_round1</code>)</td><td>gpt-5.6-sol</td><td>Reviewed hierarchy, palette, responsive behavior, map scale, and chart readability in all three rounds.</td><td>14:07:38, 14:14:56, 14:17:40</td><td>Unavailable</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">The agent names identify distinct subagents, and each of their three reviews is one assignment. Token usage is marked unavailable rather than estimated.</p>
+
+  <h2>Final verification</h2>
+  <p><code>pixi run test</code> passed 22 tests, and <code>pixi run check</code> passed the notebook check after the browser revisions. Chrome displayed the default five-state route and its progress chart at desktop and 768-pixel widths. The map retained its geographic bounds after the sidebar closed, and Zoom in narrowed the x-axis range. The class-ready Parquet inputs were not changed.</p>
+</main>
+</body>
+</html>

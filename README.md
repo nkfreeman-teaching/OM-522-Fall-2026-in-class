@@ -24,6 +24,11 @@ dynamics, and decision-making under uncertainty.
 
 ## Repository contents
 
+The [September 22 agentic AI guide](in-class-notebooks/20260922/README.md)
+provides the slides, TSP recreation exercise, finished app, illustrated review
+report, and daily AI updates skill creation prompt. Lecture notes are
+distributed through Blackboard.
+
 The repository includes dated course materials and reusable utilities:
 
 ```text
@@ -39,6 +44,12 @@ OM-522-Fall-2026-in-class/
 │   │   ├── critical-ratio.py
 │   │   ├── critical-ratio.html
 │   │   └── pseudocode.png
+│   ├── 20260922/
+│   │   ├── README.md
+│   │   ├── agentic-ai.html
+│   │   ├── transcript.txt
+│   │   ├── ai-update-prompt.md
+│   │   └── TSP-demo/
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
