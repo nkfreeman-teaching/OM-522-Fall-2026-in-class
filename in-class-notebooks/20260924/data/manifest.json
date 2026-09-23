@@ -1,0 +1,276 @@
+{
+  "generator": "generate_demo_instances.py",
+  "rng": "random.Random, one seed per family",
+  "job_count_range": [
+    40,
+    80
+  ],
+  "due_date_rule": "release_time + processing_time + uniformly sampled slack",
+  "families": {
+    "backlog": {
+      "description": "All jobs arrive in the first 30 time units, so the machine starts with a large backlog and most jobs finish late.",
+      "seed": 9241,
+      "release_window": [
+        0,
+        30
+      ],
+      "rush_share": 0.0,
+      "regular_jobs": {
+        "processing_time": [
+          1,
+          10
+        ],
+        "weight": [
+          1,
+          5
+        ],
+        "due_date_slack": [
+          0,
+          20
+        ]
+      },
+      "rush_jobs": null,
+      "instances": [
+        {
+          "instance_id": "instance_001",
+          "job_count": 63,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_001/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_002",
+          "job_count": 60,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_002/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_003",
+          "job_count": 64,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_003/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_004",
+          "job_count": 65,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_004/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_005",
+          "job_count": 47,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_005/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_006",
+          "job_count": 50,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_006/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_007",
+          "job_count": 54,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_007/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_008",
+          "job_count": 67,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_008/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_009",
+          "job_count": 69,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_009/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_010",
+          "job_count": 63,
+          "rush_jobs": 0,
+          "jobs_file": "backlog/instance_010/jobs.parquet"
+        }
+      ]
+    },
+    "steady": {
+      "description": "Arrivals are spread over the horizon, so the machine is sometimes idle and the order of released jobs matters more.",
+      "seed": 9242,
+      "release_window": "0 to 5 times the job count",
+      "rush_share": 0.0,
+      "regular_jobs": {
+        "processing_time": [
+          1,
+          10
+        ],
+        "weight": [
+          1,
+          5
+        ],
+        "due_date_slack": [
+          0,
+          20
+        ]
+      },
+      "rush_jobs": null,
+      "instances": [
+        {
+          "instance_id": "instance_001",
+          "job_count": 44,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_001/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_002",
+          "job_count": 62,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_002/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_003",
+          "job_count": 60,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_003/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_004",
+          "job_count": 74,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_004/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_005",
+          "job_count": 64,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_005/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_006",
+          "job_count": 44,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_006/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_007",
+          "job_count": 42,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_007/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_008",
+          "job_count": 58,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_008/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_009",
+          "job_count": 43,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_009/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_010",
+          "job_count": 73,
+          "rush_jobs": 0,
+          "jobs_file": "steady/instance_010/jobs.parquet"
+        }
+      ]
+    },
+    "rush": {
+      "description": "Steady arrivals in which 20 percent of jobs are short, heavily weighted rush orders with tight due dates.",
+      "seed": 9243,
+      "release_window": "0 to 5 times the job count",
+      "rush_share": 0.2,
+      "regular_jobs": {
+        "processing_time": [
+          3,
+          10
+        ],
+        "weight": [
+          1,
+          3
+        ],
+        "due_date_slack": [
+          5,
+          30
+        ]
+      },
+      "rush_jobs": {
+        "processing_time": [
+          1,
+          3
+        ],
+        "weight": [
+          8,
+          10
+        ],
+        "due_date_slack": [
+          0,
+          4
+        ]
+      },
+      "instances": [
+        {
+          "instance_id": "instance_001",
+          "job_count": 41,
+          "rush_jobs": 8,
+          "jobs_file": "rush/instance_001/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_002",
+          "job_count": 70,
+          "rush_jobs": 14,
+          "jobs_file": "rush/instance_002/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_003",
+          "job_count": 48,
+          "rush_jobs": 10,
+          "jobs_file": "rush/instance_003/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_004",
+          "job_count": 47,
+          "rush_jobs": 9,
+          "jobs_file": "rush/instance_004/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_005",
+          "job_count": 76,
+          "rush_jobs": 15,
+          "jobs_file": "rush/instance_005/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_006",
+          "job_count": 80,
+          "rush_jobs": 16,
+          "jobs_file": "rush/instance_006/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_007",
+          "job_count": 41,
+          "rush_jobs": 8,
+          "jobs_file": "rush/instance_007/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_008",
+          "job_count": 76,
+          "rush_jobs": 15,
+          "jobs_file": "rush/instance_008/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_009",
+          "job_count": 54,
+          "rush_jobs": 11,
+          "jobs_file": "rush/instance_009/jobs.parquet"
+        },
+        {
+          "instance_id": "instance_010",
+          "job_count": 77,
+          "rush_jobs": 15,
+          "jobs_file": "rush/instance_010/jobs.parquet"
+        }
+      ]
+    }
+  }
+}

@@ -12,6 +12,7 @@ lecture-20260825-export = { cmd = "marimo export html in-class-notebooks/2026082
 lecture-20260908-edit = "marimo edit in-class-notebooks/20260908/critical-ratio.py"
 lecture-20260908-check = "marimo check --strict in-class-notebooks/20260908/critical-ratio.py"
 lecture-20260908-export = "marimo export html in-class-notebooks/20260908/critical-ratio.py --output in-class-notebooks/20260908/critical-ratio.html --force"
+lecture-20260924-data = "python in-class-notebooks/20260924/generate_demo_instances.py"
 sm-instance-generate = "python sm-instance-generation/generate_instances.py"
 
 [dependencies]
