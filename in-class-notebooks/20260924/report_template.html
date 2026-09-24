@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Single-machine scheduling comparison</title>
+  <style>__REPORT_CSS__</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>Which scheduling method holds up across changing conditions?</h1>
+    <p>A comparison of four dispatch rules and three improvement moves across 30 single-machine test cases.</p>
+  </div>
+</header>
+<main>
+  <nav class="tabs" role="tablist" aria-label="Report views">
+    <button id="decision-tab" class="tab" role="tab" aria-selected="true" aria-controls="decision">Decision view</button>
+    <button id="methods-tab" class="tab" role="tab" aria-selected="false" aria-controls="methods">Methods and limits</button>
+  </nav>
+  <noscript><p class="card">This report needs JavaScript to display its results. Open it in a browser with JavaScript enabled.</p></noscript>
+  <div id="status" class="sr-only" aria-live="polite"></div>
+
+  <section id="decision" class="section" role="tabpanel" aria-labelledby="decision-tab">
+    <div class="lead">
+      <div class="card">
+        <p class="eyebrow" id="lead-label">Recommended method for the selected priority</p>
+        <h2 id="lead-method"></h2>
+        <p id="lead-description"></p>
+        <p class="scope">Thirty generated cases, ten per arrival pattern. One rule and one improvement move are reused for any measure chosen as the search target.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Decision score</p>
+        <div class="score-large" id="lead-score"></div>
+        <p class="score-caption" id="score-label"></p>
+        <p class="small muted" id="lead-runner"></p>
+      </div>
+    </div>
+
+    <div class="settings">
+      <label class="field">Choose the ranking priority
+        <select id="priority">
+          <option value="robust">Minimize the largest group-average gap</option>
+          <option value="average">Minimize the average gap</option>
+          <option value="metric:completion">Prioritize total completion time</option>
+          <option value="metric:weighted_completion">Prioritize weighted total completion</option>
+          <option value="metric:lateness">Prioritize maximum lateness</option>
+          <option value="metric:weighted_tardiness">Prioritize weighted tardiness</option>
+          <option value="family:backlog">Prioritize backlog cases</option>
+          <option value="family:steady">Prioritize steady arrivals</option>
+          <option value="family:rush">Prioritize rush orders</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="score-steps" aria-label="How the default decision score is calculated">
+      <div class="step"><strong>1. Compare each case</strong>Measure each method against the best of the 12 tested for that case and target. A result of 105 against 100 has a 5% gap.</div>
+      <div class="step"><strong>2. Average within groups</strong>Average the percentage gaps for ten cases in each arrival-pattern and measure group.</div>
+      <div class="step"><strong>3. Protect the weakest group</strong>The default score is the largest of those 12 group averages. Smaller is better.</div>
+    </div>
+
+    <section class="card focus" aria-labelledby="focus-title">
+      <div class="focus-top">
+        <div>
+          <p class="eyebrow">Direct comparison</p>
+          <h2 id="focus-title" class="section-title"></h2>
+          <p class="focus-desc">This is the method being inspected. It may differ from the recommendation above. Both methods use percentage gaps against the best tested method for the same case and search target.</p>
+        </div>
+        <label class="field">Compare the inspected method with
+          <select id="compare"></select>
+        </label>
+      </div>
+      <div id="comparison-summary" class="comparison-summary"></div>
+      <p class="small muted" style="margin: 14px 0 4px">Each cell shows the inspected method's difference from the comparison method. "pp" means percentage points. A negative number means the inspected method has a smaller gap. The smaller line shows both group-average gaps, in heading order.</p>
+      <div id="matrix" class="matrix-wrap"></div>
+    </section>
+
+    <div class="two-col">
+      <section class="card tradeoffs" aria-labelledby="tradeoff-title">
+        <p class="eyebrow">Explore a separate search target</p>
+        <h2 id="tradeoff-title" class="section-title">Trade-offs when optimizing one measure</h2>
+        <p class="small muted">For each case, the chosen method builds a new schedule for the selected target. The table averages the resulting gaps across cases. Its benchmark is the best of all 48 schedules produced for each case and measure, so these gaps use a broader comparison than the ranking above.</p>
+        <div class="settings">
+          <label class="field">Measure used to improve each schedule
+            <select id="target">
+              <option value="completion">Total completion time</option>
+              <option value="weighted_completion">Weighted total completion</option>
+              <option value="lateness">Maximum lateness</option>
+              <option value="weighted_tardiness" selected>Weighted tardiness</option>
+            </select>
+          </label>
+          <label class="field">Cases included
+            <select id="family">
+              <option value="all">All three arrival patterns</option>
+              <option value="backlog">Backlog only</option>
+              <option value="steady">Steady arrivals only</option>
+              <option value="rush">Rush orders only</option>
+            </select>
+          </label>
+        </div>
+        <p id="tradeoff-pair" class="small muted"></p>
+        <div id="cross-table"></div>
+        <div id="effort" class="effort"></div>
+      </section>
+
+      <section class="card ranking" aria-labelledby="ranking-title">
+        <p class="eyebrow">All tested methods</p>
+        <h2 id="ranking-title" class="section-title"></h2>
+        <p class="small muted" id="ranking-description"></p>
+        <div id="ranking-list"></div>
+        <button id="show-all" class="secondary-button" type="button" aria-expanded="false">Show all 12 methods</button>
+        <p class="small muted" style="margin: 12px 0 0">Select any row to inspect it above. Exact ties use the lower default score defined at the top of this page.</p>
+      </section>
+    </div>
+
+    <section id="stability" class="card stability" aria-labelledby="stability-title">
+      <p class="eyebrow">Sensitivity to the sampled cases</p>
+      <h2 id="stability-title" class="section-title">How stable is the recommendation?</h2>
+      <p id="stability-text"></p>
+      <p class="small muted" style="margin-bottom: 0">Each repeat draws ten cases with replacement within each arrival pattern and reruns the default ranking. This checks sensitivity to these synthetic cases. It does not predict performance in a new factory. <a href="#methods" id="stability-link">Read the methods and limits.</a></p>
+    </section>
+    <p class="footer-note">The report is self-contained and can be opened or shared without a server or network connection.</p>
+  </section>
+
+  <section id="methods" class="section" role="tabpanel" aria-labelledby="methods-tab" hidden>
+    <div class="method-layout">
+      <article class="card">
+        <h2>What was tested</h2>
+        <p>Thirty generated instances contain 40 to 80 jobs each. A single machine handles one job at a time. Jobs have processing times, release times, due dates, and priority weights. Fixed setup times are zero.</p>
+        <table class="method-table"><tbody>
+          <tr><th>Backlog</th><td>All jobs arrive in the first 30 time units, leaving many jobs waiting.</td></tr>
+          <tr><th>Steady arrivals</th><td>Jobs arrive throughout the horizon, and the machine is sometimes idle.</td></tr>
+          <tr><th>Rush orders</th><td>About 20% of jobs are short, heavily weighted, and due soon after release.</td></tr>
+        </tbody></table>
+        <h3>Four outcomes</h3>
+        <table class="method-table"><tbody>
+          <tr><th>Total completion time</th><td>The sum of each job's finish time.</td></tr>
+          <tr><th>Weighted total completion</th><td>The same sum, with each job's finish time multiplied by its priority weight.</td></tr>
+          <tr><th>Maximum lateness</th><td>The largest finish time minus due date for any job. A negative result means every job finished early.</td></tr>
+          <tr><th>Weighted tardiness</th><td>The sum of late time multiplied by priority weight. Early jobs add zero.</td></tr>
+        </tbody></table>
+        <p class="small muted" style="margin-top: 10px">Smaller is better for every outcome.</p>
+      </article>
+
+      <article class="card">
+        <h2>How schedules were built</h2>
+        <p>A dispatch rule picks the next job among those already released. The machine waits for the next release only when no job is available. Ties use job identifier order.</p>
+        <table class="method-table"><tbody>
+          <tr><th>Earliest due date (EDD)</th><td>Pick the job with the earliest due date.</td></tr>
+          <tr><th>Shortest processing time (SPT)</th><td>Pick the shortest available job.</td></tr>
+          <tr><th>Critical ratio (CR)</th><td>Pick the smallest ratio of time until due date to processing time.</td></tr>
+          <tr><th>Weighted shortest processing time (WSPT)</th><td>Pick the smallest processing time divided by priority weight.</td></tr>
+        </tbody></table>
+        <h3>Three improvement moves</h3>
+        <table class="method-table"><tbody>
+          <tr><th>Adjacent swap</th><td>Exchange two neighboring jobs.</td></tr>
+          <tr><th>Any-pair swap</th><td>Exchange any two jobs in the order.</td></tr>
+          <tr><th>Subsequence reversal</th><td>Reverse a consecutive block of jobs.</td></tr>
+        </tbody></table>
+        <p style="margin-top: 10px">The search accepts the first move that strictly improves the chosen outcome and repeats until no move in that neighborhood helps. Each revised order runs jobs in sequence. It may wait for a later job even when another job is ready.</p>
+      </article>
+
+      <article class="card">
+        <h2>How methods were compared</h2>
+        <p>Each rule and improvement move is run separately for each of the four target outcomes. Thus, a method can create four different schedules for the same case. The comparison chooses one rule and one move that work across target choices. It does not choose one schedule that balances all four outcomes at once.</p>
+        <p>For each case and target, the ranking benchmark is the lowest target value found among the 12 methods. A method's gap is its value minus that benchmark, divided by the larger of 1 and the benchmark's absolute value. For example, 105 compared with a best tested value of 100 gives a 5% gap. All benchmarks in these cases are positive. The best tested value is not a proven optimum.</p>
+        <p>Each of the three arrival patterns and four outcomes defines one group. Ten paired case gaps are averaged in each of these 12 groups. The default ranking minimizes the largest group-average gap. The equal-average option weights all 12 group averages equally. Other options average across the selected outcome or arrival pattern. Exact ties use the default score as a second criterion.</p>
+        <p>The trade-off table uses a different benchmark. It compares each outcome with the best of all 48 schedules made for that case, across the 12 methods and four search targets.</p>
+      </article>
+
+      <article class="card">
+        <h2>How far the finding travels</h2>
+        <h3>Resampling check</h3>
+        <p>Two thousand repeats draw ten cases with replacement from each arrival pattern. Every repeat keeps method comparisons paired within each sampled case and recalculates the default ranking. The displayed share is how often a method ranks first under that resampling. It describes sensitivity to the supplied synthetic cases, not the probability of winning on a new factory's jobs.</p>
+        <h3>Computation</h3>
+        <p>An evaluation scores one candidate job order. The three improvement moves inspect different numbers of candidates. Reported milliseconds come from this implementation on this machine and are useful for comparing methods here, not predicting runtime on another machine.</p>
+        <h3>Limits</h3>
+        <p>The 30 cases were generated from three patterns with one fixed set of seeds. Real systems may have sequence-dependent setup, breakdowns, several machines, or different priority weights. Test the selected method on fresh cases from the intended setting before adopting it. A single schedule that balances all four outcomes would require a separate combined-objective design.</p>
+      </article>
+    </div>
+  </section>
+</main>
+<script>const DATA=__REPORT_DATA__;</script>
+<script>__REPORT_JS__</script>
+</body>
+</html>
