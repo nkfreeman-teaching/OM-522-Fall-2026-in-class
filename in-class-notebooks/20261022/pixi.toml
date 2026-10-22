@@ -1,0 +1,19 @@
+[workspace]
+channels = ["conda-forge"]
+name = "om522-distribution-fitting"
+platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks.check]
+cmd = "marimo check distribution_fitting.py"
+
+[tasks.demo]
+cmd = "marimo edit distribution_fitting.py"
+
+[dependencies]
+python = "3.12.*"
+polars = ">=1.44.2,<3"
+matplotlib = ">=3.10.9,<4"
+seaborn = ">=0.13.2,<0.14"
+marimo = ">=0.24.0,<0.26"
+scipy = ">=1.16,<2"

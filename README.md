@@ -65,6 +65,10 @@ OM-522-Fall-2026-in-class/
 │   ├── 20261015/
 │   │   ├── README.md
 │   │   └── critical_path.py
+│   ├── 20261022/
+│   │   ├── README.md
+│   │   ├── distribution_fitting.py
+│   │   └── data-samples/
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -226,6 +230,23 @@ pixi run demo
 
 The [critical path guide](in-class-notebooks/20261015/README.md) describes
 what each part of the notebook shows.
+
+## Distribution fitting demo
+
+The October 22 demo starts the simulation unit. It takes a file of historical
+observations, fits a normal distribution to it with SciPy, measures the fit
+with the Kolmogorov-Smirnov and Anderson-Darling statistics, and then fits and
+ranks every continuous distribution in SciPy. Run its commands from the
+`20261022` directory:
+
+```bash
+cd in-class-notebooks/20261022
+pixi install
+pixi run demo
+```
+
+The [distribution fitting guide](in-class-notebooks/20261022/README.md)
+describes the eight data files and what each part of the notebook shows.
 
 ## Single-machine instance generation
 
