@@ -1,0 +1,18 @@
+[workspace]
+channels = ["conda-forge"]
+name = "om522-20261119"
+platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+class = "marimo edit push_and_limits.py"
+check = "marimo check push_and_limits.py"
+
+[dependencies]
+python = ">=3.12,<3.14"
+numpy = ">=2.5.4,<3"
+polars = ">=2.0.0,<3"
+networkx = ">=3.7,<4"
+plotly = ">=7.1.0,<8"
+scipy = ">=1.18.1,<2"
+marimo = ">=0.25.1,<0.26"

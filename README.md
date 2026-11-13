@@ -98,6 +98,19 @@ OM-522-Fall-2026-in-class/
 │   │   ├── flowsim/
 │   │   ├── pixi.toml
 │   │   └── pixi.lock
+│   ├── 20261119/
+│   │   ├── README.md
+│   │   ├── push_and_limits.py
+│   │   ├── flowsim/
+│   │   ├── pixi.toml
+│   │   └── pixi.lock
+│   ├── 20261201/
+│   │   ├── README.md
+│   │   ├── next_dollar.py
+│   │   ├── data/
+│   │   ├── flowsim/
+│   │   ├── pixi.toml
+│   │   └── pixi.lock
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -331,6 +344,16 @@ Quiz 3 handout on Blackboard walks through the quiz.
 The November 17 folder holds the class notebook on variability. Run it from the `20261117`
 directory with `pixi install`, then `pixi run class`. The
 [November 17 guide](in-class-notebooks/20261117/README.md) describes it.
+
+## Push and limits
+
+The November 19 folder holds the class notebook that runs a three-station shop with and without a
+limit on work. Run it from the `20261119` directory with `pixi install`, then `pixi run class`.
+
+## Where to spend the next dollar
+
+The December 1 folder holds the class notebook that compares five ways to spend one budget on the
+November 3 line. Run it from the `20261201` directory with `pixi install`, then `pixi run class`.
 
 ## Single-machine instance generation
 

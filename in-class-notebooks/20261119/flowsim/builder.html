@@ -1,0 +1,2582 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlowSim model builder</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #172b3a; background: #f3f6f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1320px; margin: auto; padding: 24px; }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    p { line-height: 1.5; margin: 6px 0 12px; }
+    .muted { color: #536575; }
+    section, aside { background: white; border: 1px solid #dce3e8; border-radius: 10px; padding: 16px; min-width: 0; }
+    section { margin-bottom: 16px; }
+    .notice { border-left: 4px solid #0072b2; padding-left: 12px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; }
+    .toolbar .gap { width: 12px; }
+    select, input, button, .button { font: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid #a9bac7; border-radius: 5px; background: white; color: #172b3a; }
+    input[type="checkbox"] { padding: 0; }
+    button, .button { cursor: pointer; }
+    button:hover, .button:hover { background: #edf3f7; }
+    button:disabled { cursor: default; opacity: 0.45; }
+    label { font-size: 14px; }
+    .toolbar input:not([type]) { width: 90px; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; margin-bottom: 16px; }
+    .canvas-box { padding: 10px; }
+    #canvas { width: 100%; height: auto; display: block; background: #fbfcfd; border: 1px solid #e4eaef; border-radius: 6px; touch-action: none; user-select: none; }
+    #canvas-status { min-height: 1.5em; margin: 6px 2px 0; color: #b03a2e; font-size: 14px; }
+    .node { cursor: grab; }
+    .node rect.body { stroke-width: 1.5; }
+    .node.source rect.body { fill: #e6f2ea; stroke: #2e7d4f; }
+    .node.station rect.body { fill: #e8f1f8; stroke: #0072b2; }
+    .node.exit rect.body { fill: #eef0f2; stroke: #6b7a86; }
+    .node.selected rect.body { stroke: #d55e00; stroke-width: 3; }
+    .node text { font-size: 13px; fill: #172b3a; pointer-events: none; }
+    .node text.kind { font-size: 10px; fill: #536575; letter-spacing: 0.06em; text-transform: uppercase; }
+    .node text.detail { font-size: 11px; fill: #455966; }
+    .handle { fill: white; stroke: #172b3a; stroke-width: 1.5; cursor: crosshair; }
+    .handle:hover { fill: #d55e00; }
+    .edge { stroke: #455966; stroke-width: 1.8; fill: none; }
+    .edge.selected { stroke: #d55e00; stroke-width: 3; }
+    .edge-hit { stroke: transparent; stroke-width: 14; fill: none; cursor: pointer; }
+    .pending { stroke: #d55e00; stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
+    .edge-prob { width: 60px; font-size: 12px; padding: 2px 4px; text-align: center; border-color: #455966; }
+    .node:focus { outline: none; }
+    .node:focus-visible rect.body { stroke: #d55e00; stroke-width: 3; stroke-dasharray: 6 3; }
+    .edge-hit:focus { outline: none; }
+    .edge-hit:focus-visible { stroke: rgba(213, 94, 0, 0.35); }
+    button:focus-visible, .button:focus-within, select:focus-visible, input:focus-visible { outline: 3px solid #d55e00; outline-offset: 1px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .choice { display: block; font-size: 14px; margin: 4px 0; line-height: 1.4; }
+    .choice input { margin-right: 6px; }
+    .need { color: #b03a2e; }
+    table.rows { border-collapse: collapse; width: 100%; margin: 4px 0 6px; }
+    table.rows th { font-size: 12px; font-weight: 600; text-align: left; color: #455966; padding: 2px 4px; }
+    table.rows td { padding: 2px 4px; }
+    table.rows td:last-child { width: 34px; }
+    .edge-types { font-size: 11px; fill: #172b3a; paint-order: stroke; stroke: #fbfcfd; stroke-width: 4px; pointer-events: none; }
+    #types-box { padding: 12px 16px; }
+    #types-box h2 { display: inline; margin-right: 10px; font-size: 16px; }
+    #types-list { display: inline-flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 10px 0 0; padding: 0; vertical-align: middle; }
+    #types-list li { display: flex; gap: 4px; }
+    #types-list input { width: 130px; }
+    kbd { font: 12px ui-monospace, monospace; border: 1px solid #a9bac7; border-radius: 3px; padding: 0 4px; background: #f7f9fb; }
+    aside { max-height: 640px; overflow-y: auto; }
+    aside .field { margin: 0 0 12px; }
+    aside .field > label, aside legend { display: block; font-weight: 600; margin-bottom: 4px; font-family: ui-monospace, monospace; font-size: 13px; }
+    aside input:not([type="checkbox"]):not([type="radio"]), aside select { width: 100%; }
+    aside legend { font-family: inherit; font-size: 14px; }
+    aside legend code, .choice code { font-family: ui-monospace, monospace; font-size: 12px; }
+    aside .field > label.choice { font-family: inherit; font-weight: 400; font-size: 14px; }
+    aside fieldset { border: 1px solid #e4eaef; border-radius: 6px; padding: 10px; margin: 0 0 12px; }
+    aside .param { display: grid; grid-template-columns: minmax(70px, auto) 1fr; gap: 6px; align-items: center; margin-top: 6px; }
+    aside .param label { font-family: ui-monospace, monospace; font-size: 13px; }
+    .help { font-size: 12px; color: #536575; margin: 3px 0 0; line-height: 1.4; }
+    .routes { list-style: none; padding: 0; margin: 6px 0; }
+    .routes li { display: grid; grid-template-columns: 1fr 74px 30px; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 14px; }
+    .routes li.single { grid-template-columns: 1fr 30px; }
+    .add-route { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+    .danger { color: #b03a2e; border-color: #d9a6a0; }
+    #problems { margin: 0; padding-left: 20px; }
+    #problems li { margin: 4px 0; color: #b03a2e; }
+    #problems li.ok { color: #2e7d4f; list-style: none; margin-left: -20px; }
+    .code-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .code-head h2 { margin: 0 8px 0 0; }
+    #code { margin: 0; padding: 14px; background: #f7f9fb; border: 1px solid #e4eaef; border-radius: 6px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-x: auto; white-space: pre; }
+    #copy-status, #file-status { font-size: 14px; color: #536575; }
+    @media (max-width: 980px) { .workspace { grid-template-columns: 1fr; } aside { max-height: none; } }
+  </style>
+  <script id="schema" type="application/json">__SCHEMA_JSON__</script>
+</head>
+<body>
+<main>
+  <h1>FlowSim model builder</h1>
+  <p class="muted">Draw a service network, set its durations and behaviors, and copy the FlowSim script it writes. The script is ordinary FlowSim code to edit further, and running it is the final check of the model.</p>
+  <p class="notice" id="excluded"><strong>Not in this builder:</strong> supply chains. Add them by editing the script. The builder never chooses a behavior for you: when a feature needs a rule (what an off-duty server does, what happens when a buffer is full, when patience or a failure clock runs), Checks lists it until you choose. <span id="excluded-arguments" class="muted"></span></p>
+
+  <div class="toolbar">
+    <button id="add-source" type="button">Add source</button>
+    <button id="add-station" type="button">Add station</button>
+    <button id="delete-selected" type="button" disabled>Delete selected</button>
+    <button id="undo" type="button" disabled aria-keyshortcuts="Control+Z">Undo</button>
+    <button id="redo" type="button" disabled aria-keyshortcuts="Control+Shift+Z Control+Y">Redo</button>
+    <button id="arrange" type="button">Arrange</button>
+    <span class="gap"></span>
+    <label for="time-unit">Time unit</label><input id="time-unit">
+    <label for="run-duration">Run length</label><input id="run-duration" inputmode="decimal">
+    <label for="run-seed">Seed</label><input id="run-seed" inputmode="numeric">
+    <label><input type="checkbox" id="run-drain"> Serve every customer after closing</label>
+    <span class="gap"></span>
+    <button id="save-json" type="button">Save model file</button>
+    <label class="button" for="load-json">Load model file</label>
+    <input type="file" id="load-json" accept=".json,application/json" hidden>
+    <button id="clear-model" type="button">New model</button>
+    <span id="file-status" role="status"></span>
+  </div>
+
+  <section id="types-box" aria-labelledby="types-heading">
+    <h2 id="types-heading">Customer types</h2>
+    <ul id="types-list"></ul>
+    <button id="add-type" type="button">Add customer type</button>
+    <p class="help" id="types-help">Without types, every customer is alike. With types, each source sets its type mix, and each arrow can carry every type or only some. A node's second arrow asks, in the side panel, whether its customers split by probability or by customer type.</p>
+  </section>
+
+  <div class="workspace">
+    <section class="canvas-box">
+      <svg id="canvas" viewBox="0 0 920 520" tabindex="-1" role="group" aria-label="Model diagram" aria-describedby="canvas-help"></svg>
+      <p id="canvas-status" role="alert"></p>
+      <p id="announce" class="sr-only" role="status"></p>
+      <p class="muted" id="canvas-help" style="margin: 0 2px; font-size: 14px;">Drag a node to move it. Drag from the dot on a node's right edge to another node to add a route. Two or more routes from one node make a branch, with a probability on each arrow. Select a node or an arrow to edit it, and press Delete to remove it. From the keyboard, <kbd>Tab</kbd> reaches each node and arrow, <kbd>Enter</kbd> edits it in the side panel (where <em>Add route</em> connects nodes), the arrow keys move a node (<kbd>Shift</kbd> moves farther), <kbd>Delete</kbd> removes it, and <kbd>Escape</kbd> clears the selection. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> or <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes outside a text field. Arrange places the nodes left to right along their routes.</p>
+    </section>
+    <aside id="panel" tabindex="-1" aria-label="Selected item"></aside>
+  </div>
+
+  <section>
+    <h2>Checks</h2>
+    <ul id="problems"></ul>
+  </section>
+
+  <section>
+    <div class="code-head">
+      <h2>FlowSim script</h2>
+      <button id="copy-code" type="button">Copy</button>
+      <button id="download-code" type="button">Download .py</button>
+      <span id="copy-status" role="status"></span>
+    </div>
+    <pre id="code"></pre>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const SCHEMA = JSON.parse(document.getElementById("schema").textContent);
+const FORMAT = "flowsim-builder";
+const DISTRIBUTIONS = new Map(SCHEMA.distributions.map((entry) => [entry.name, entry]));
+const PARAMETERS = {};
+for (const kind of ["model", "source", "station", "run"]) {
+  PARAMETERS[kind] = new Map(SCHEMA[kind].map((entry) => [entry.name, entry]));
+}
+const SUPPORTED = SCHEMA.supported;
+const BRANCH_SUM_TOLERANCE = SCHEMA.branch_sum_tolerance;
+const RESERVED = new Set(SCHEMA.reserved);
+const WIDTH = 920;
+const MIN_HEIGHT = 520;
+const MAX_X = 3000;
+const MAX_Y = 2000;
+const HISTORY_LIMIT = 100;
+const MOVE_STEP = 10;
+const MOVE_STEP_LARGE = 50;
+const NODE_W = 150;
+const NODE_H = 58;
+// The distance between arrows that join the same two nodes.
+const PARALLEL_GAP = 36;
+const LINE = 88;
+
+const canvas = document.getElementById("canvas");
+const panel = document.getElementById("panel");
+
+let state = emptyState();
+let selection = null;
+let gesture = null;
+// Undo history: snapshots of the state and selection before each change.
+let undoStack = [];
+let redoStack = [];
+// The key of the edit in progress, so typing in one field is one undo step.
+let editing = null;
+
+function emptyState() {
+  return {
+    time_unit: String(PARAMETERS.model.get("time_unit").default),
+    run: {duration: "480", seed: String(PARAMETERS.run.get("seed").default), drain: false},
+    types: [],
+    nodes: [{id: "exit", kind: "exit", name: "Exit", x: 740, y: 230, values: {}}],
+    edges: [],
+    next: 1,
+    next_type: 1,
+    next_edge: 1,
+  };
+}
+
+// The page's fields for each node kind and how each is stored: a duration
+// spec, number text, a choice ("" until the student picks), an on/off switch,
+// schedule rows, or a map from customer type id to number text or a spec.
+const FIELDS = {
+  source: {
+    interarrival: "duration",
+    first_arrival: "number",
+    limit: "number",
+    arrivals: "mode",
+    rates: "rows",
+    mix: "numbers",
+  },
+  station: {
+    capacity: "number",
+    service_time: "duration",
+    service_by_type: "toggle",
+    service_times: "durations",
+    staffing_on: "toggle",
+    staffing: "rows",
+    shift_end: "choice",
+    buffer: "number",
+    external_overflow: "choice",
+    abandon_on: "toggle",
+    patience: "duration",
+    patience_by_type: "toggle",
+    patience_times: "durations",
+    abandon_from: "choice",
+    failures_on: "toggle",
+    time_to_failure: "duration",
+    repair_time: "duration",
+    failure_clock: "choice",
+    priority_on: "toggle",
+    priority: "numbers",
+  },
+};
+const ARRIVAL_MODES = ["interarrival", "rates"];
+// Where a per-type duration is stored, by its single-duration field.
+const BY_TYPE = {service_time: "service_times", patience: "patience_times"};
+// Durations that start blank, since a prefilled value would read as advice.
+const BLANK_DURATIONS = new Set(["patience", "time_to_failure", "repair_time"]);
+
+// ---------- Small helpers ----------
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+}
+
+function nodeById(id) {
+  return state.nodes.find((node) => node.id === id);
+}
+
+function outgoing(id) {
+  return state.edges.filter((edge) => edge.from === id);
+}
+
+function firstSentence(text) {
+  const match = text.match(/^.*?\.(\s|$)/);
+  return match ? match[0].trim() : text;
+}
+
+function exampleValue(distribution, parameter) {
+  if (parameter.name in distribution.example) {
+    return String(distribution.example[parameter.name]);
+  }
+  return parameter.default === null ? "" : String(parameter.default);
+}
+
+// A new duration of the named distribution, filled from its docstring example,
+// or with every parameter blank for a duration the page must not prefill.
+function distributionSpec(name, blank = false) {
+  if (name === "constant") {
+    return {name: "constant", value: blank ? "" : "1"};
+  }
+  const distribution = DISTRIBUTIONS.get(name);
+  const spec = {name};
+  for (const parameter of distribution.parameters) {
+    spec[parameter.name] = blank ? "" : exampleValue(distribution, parameter);
+  }
+  return spec;
+}
+
+function blankSpec() {
+  return {name: ""};
+}
+
+function emptyRow() {
+  return {start: "", value: ""};
+}
+
+function defaultValue(kind, name) {
+  const field = FIELDS[kind][name];
+  if (field === "duration") {
+    return BLANK_DURATIONS.has(name) ? blankSpec() : distributionSpec(SCHEMA.distributions[0].name);
+  }
+  if (field === "number") {
+    const parameter = PARAMETERS[kind].get(name);
+    if (parameter.required) return String(parameter.minimum !== undefined ? Math.max(parameter.minimum, 1) : 1);
+    return parameter.default === null ? "" : String(parameter.default);
+  }
+  if (field === "mode") return ARRIVAL_MODES[0];
+  if (field === "rows") return [{start: "0", value: ""}];
+  if (field === "choice") return "";
+  if (field === "toggle") return false;
+  return {};
+}
+
+function defaultValues(kind) {
+  const values = {};
+  for (const name of Object.keys(FIELDS[kind])) values[name] = defaultValue(kind, name);
+  return values;
+}
+
+// ---------- Customer types and route groups ----------
+
+function typeIds() {
+  return state.types.map((item) => item.id);
+}
+
+function typeName(id) {
+  const kind = state.types.find((item) => item.id === id);
+  return kind ? kind.name : id;
+}
+
+// An arrow carries every type (types null) or the listed type ids. Arrows
+// from one node with the same types form one route or branch, its group.
+function edgeKey(edge) {
+  if (edge.types === null) return "*";
+  return typeIds().filter((id) => edge.types.includes(id)).join("|");
+}
+
+function groupOf(edge) {
+  const key = edgeKey(edge);
+  return outgoing(edge.from).filter((item) => edgeKey(item) === key);
+}
+
+function inBranch(edge) {
+  return groupOf(edge).length > 1;
+}
+
+function typesText(edge) {
+  if (edge.types === null) return "";
+  const names = typeIds().filter((id) => edge.types.includes(id)).map(typeName);
+  return names.length ? names.join(", ") : "no type chosen";
+}
+
+function settleSingles(origin) {
+  // The only arrow in its group carries every customer of those types.
+  for (const edge of outgoing(origin)) {
+    if (groupOf(edge).length === 1) edge.probability = "1";
+  }
+}
+
+function uniqueTypeName() {
+  const taken = new Set(state.types.map((item) => item.name));
+  let index = state.types.length + 1;
+  while (taken.has(`Type ${index}`)) index += 1;
+  return `Type ${index}`;
+}
+
+function addType() {
+  record(null);
+  const id = `t${state.next_type}`;
+  state.next_type += 1;
+  state.types.push({id, name: uniqueTypeName()});
+  renderAll();
+  announce(`Added customer type ${typeName(id)}. Each source now needs a probability for it.`);
+  document.getElementById(`type-name-${id}`).focus();
+}
+
+function removeType(id) {
+  if (state.types.length === 1) {
+    // Without types, two arrows between the same nodes could not differ.
+    const twice = state.edges.find((edge) => state.edges.some((other) => other !== edge && other.from === edge.from && other.to === edge.to));
+    if (twice) {
+      showStatus(`Remove a route from ${nodeById(twice.from).name} to ${nodeById(twice.to).name} first. Two routes between the same nodes need customer types.`);
+      return;
+    }
+  }
+  record(null);
+  const name = typeName(id);
+  state.types = state.types.filter((item) => item.id !== id);
+  for (const node of state.nodes) {
+    for (const [field, kind] of Object.entries(FIELDS[node.kind] || {})) {
+      if (kind === "numbers" || kind === "durations") delete node.values[field][id];
+    }
+    if (!state.types.length && node.kind === "station") {
+      // Without types, per-type settings have nothing to apply to.
+      node.values.service_by_type = false;
+      node.values.patience_by_type = false;
+      node.values.priority_on = false;
+    }
+  }
+  for (const edge of state.edges) {
+    if (edge.types === null) continue;
+    edge.types = state.types.length ? edge.types.filter((item) => item !== id) : null;
+  }
+  for (const node of state.nodes) settleSingles(node.id);
+  renderAll();
+  announce(`Removed customer type ${name}.`);
+}
+
+function setEdgeTypes(edge, types) {
+  record(null);
+  edge.types = types;
+  const group = groupOf(edge);
+  if (group.length > 1) shareSplit(group);
+  settleSingles(edge.from);
+  renderAll();
+}
+
+// A node routes every type the same way or each type its own way, never both,
+// so the choice applies to every arrow that leaves it.
+function setRouting(origin, typed) {
+  record(null);
+  for (const edge of outgoing(origin)) edge.types = typed ? edge.types || [] : null;
+  for (const group of groupsOf(origin)) {
+    if (group.length > 1) shareSplit(group);
+  }
+  settleSingles(origin);
+  renderAll();
+}
+
+function uniqueName(base) {
+  const taken = new Set(state.nodes.map((node) => node.name));
+  let index = 1;
+  let name = base;
+  while (taken.has(name)) {
+    index += 1;
+    name = `${base} ${index}`;
+  }
+  return name;
+}
+
+function showStatus(text) {
+  document.getElementById("canvas-status").textContent = text;
+}
+
+function announce(text) {
+  // A screen reader reads the polite status region; it is not shown.
+  document.getElementById("announce").textContent = text;
+}
+
+function canvasWidth() {
+  const rightmost = Math.max(0, ...state.nodes.map((node) => node.x + NODE_W));
+  return Math.max(WIDTH, rightmost + 30);
+}
+
+function canvasHeight() {
+  const lowest = Math.max(0, ...state.nodes.map((node) => node.y + NODE_H));
+  return Math.max(MIN_HEIGHT, lowest + 80);
+}
+
+// ---------- Undo ----------
+
+function snapshot() {
+  return JSON.stringify({state, selection});
+}
+
+// Save the state before a change. Consecutive changes with the same key (e.g.,
+// keystrokes in one field, or arrow-key moves of one node) are one step; a
+// null key always starts a new step.
+function record(key) {
+  if (key !== null && key === editing) return;
+  editing = key;
+  undoStack.push(snapshot());
+  if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  redoStack = [];
+  updateHistoryButtons();
+}
+
+function restore(text) {
+  const saved = JSON.parse(text);
+  state = saved.state;
+  selection = saved.selection;
+  editing = null;
+  syncSettings();
+  renderAll();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(snapshot());
+  restore(undoStack.pop());
+  announce("Undone.");
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(snapshot());
+  restore(redoStack.pop());
+  announce("Redone.");
+}
+
+function updateHistoryButtons() {
+  document.getElementById("undo").disabled = !undoStack.length;
+  document.getElementById("redo").disabled = !redoStack.length;
+}
+
+// ---------- Editing ----------
+
+function overlaps(x, y) {
+  return state.nodes.some((node) => Math.abs(node.x - x) < NODE_W + 10 && Math.abs(node.y - y) < NODE_H + 10);
+}
+
+function freeCell() {
+  // The first cell of a four-column grid, row by row, that no node covers.
+  for (let row = 0; ; row += 1) {
+    for (let column = 0; column < 4; column += 1) {
+      const x = 30 + column * 175;
+      const y = 40 + row * 115;
+      if (!overlaps(x, y) || y + NODE_H > MAX_Y) return {x, y: Math.min(y, MAX_Y - NODE_H)};
+    }
+  }
+}
+
+function addNode(kind) {
+  record(null);
+  const cell = freeCell();
+  const node = {
+    id: `n${state.next}`,
+    kind,
+    name: uniqueName(kind === "source" ? "Source" : "Station"),
+    x: cell.x,
+    y: cell.y,
+    values: defaultValues(kind),
+  };
+  state.next += 1;
+  state.nodes.push(node);
+  selection = {type: "node", id: node.id};
+  showStatus("");
+  renderAll();
+  announce(`Added ${kind} ${node.name}. Its fields are in the side panel.`);
+  document.getElementById("field-name").focus();
+}
+
+function shareSplit(edges) {
+  const count = edges.length;
+  const base = Math.floor(100 / count) / 100;
+  edges.forEach((edge, index) => {
+    const share = index === count - 1 ? Math.round((1 - base * (count - 1)) * 100) / 100 : base;
+    edge.probability = String(share);
+  });
+}
+
+// The rules for one new route, shared by the add-route controls and file loading.
+// Returns the reason the route is refused, or null. A second route between the
+// same nodes needs customer types (typed), since each must carry its own; Checks
+// lists any type that two of them carry.
+function routeProblem(nodes, edges, from, to, typed) {
+  const origin = nodes.find((node) => node.id === from);
+  const target = nodes.find((node) => node.id === to);
+  if (from === to) return "A node cannot route to itself.";
+  if (origin.kind === "exit") return "The exit cannot have an outgoing route.";
+  if (target.kind === "source") return "A source cannot receive routed customers.";
+  if (!typed && edges.some((edge) => edge.from === from && edge.to === to)) {
+    return `${origin.name} already routes to ${target.name}. A second route between them needs customer types, so that each carries its own.`;
+  }
+  return null;
+}
+
+function addEdge(from, to) {
+  const origin = nodeById(from);
+  const target = nodeById(to);
+  if (!origin || !target) return;
+  const refusal = routeProblem(state.nodes, state.edges, from, to, state.types.length > 0);
+  if (refusal) {
+    showStatus(refusal);
+    return;
+  }
+  record(null);
+  // A second route between the same nodes, or a route from a node that already
+  // routes by customer type, starts with no type chosen, which Checks lists
+  // until the student picks its types.
+  const second = state.edges.some((edge) => edge.from === from && edge.to === to);
+  const typed = second || outgoing(from).some((edge) => edge.types !== null);
+  const edge = {id: `e${state.next_edge}`, from, to, probability: "1", types: typed ? [] : null};
+  state.next_edge += 1;
+  state.edges.push(edge);
+  if (typed) {
+    for (const item of outgoing(from)) item.types = item.types || [];
+  }
+  const group = groupOf(edge);
+  if (group.length > 1) shareSplit(group);
+  // With customer types, a node's second arrow opens the choice between a
+  // split by probability and a split by customer type.
+  const choose = state.types.length > 0 && outgoing(from).length > 1;
+  if (choose) selection = {type: "edge", id: edge.id};
+  showStatus("");
+  renderAll();
+  if (!choose) {
+    announce(`Added a route from ${origin.name} to ${target.name}.`);
+    return;
+  }
+  announce(
+    typed
+      ? `Added a route from ${origin.name} to ${target.name}. Choose its customer types in the side panel.`
+      : `Added a route from ${origin.name} to ${target.name}. In the side panel, choose whether customers leaving ${origin.name} split by probability or by customer type.`,
+  );
+  document.getElementById(typed ? "edge-types-some" : "edge-types-all").focus();
+}
+
+function edgeById(id) {
+  return state.edges.find((edge) => edge.id === id);
+}
+
+function removeEdge(id) {
+  const edge = edgeById(id);
+  record(null);
+  announce(`Removed the route from ${nodeById(edge.from).name} to ${nodeById(edge.to).name}.`);
+  state.edges = state.edges.filter((item) => item.id !== id);
+  settleSingles(edge.from);
+  if (selection && selection.type === "edge" && selection.id === id) {
+    selection = {type: "node", id: edge.from};
+  }
+  renderAll();
+}
+
+function removeNode(id) {
+  const node = nodeById(id);
+  if (!node || node.kind === "exit") return;
+  record(null);
+  announce(`Deleted ${node.kind} ${node.name}.`);
+  const origins = new Set(state.edges.filter((edge) => edge.to === id).map((edge) => edge.from));
+  state.edges = state.edges.filter((edge) => edge.from !== id && edge.to !== id);
+  for (const origin of origins) settleSingles(origin);
+  state.nodes = state.nodes.filter((item) => item.id !== id);
+  selection = null;
+  renderAll();
+}
+
+function deleteSelection() {
+  if (!selection) return;
+  if (selection.type === "node") removeNode(selection.id);
+  else removeEdge(selection.id);
+}
+
+// ---------- Canvas ----------
+
+function anchor(node, toward, from = center(node)) {
+  // The point where the line from a point in the node's box (its center unless
+  // given) toward another point leaves the box, 4 pixels out. A start outside
+  // the box falls back to the center.
+  const left = node.x - 4;
+  const right = node.x + NODE_W + 4;
+  const top = node.y - 4;
+  const bottom = node.y + NODE_H + 4;
+  const start = from.x > left && from.x < right && from.y > top && from.y < bottom ? from : center(node);
+  const dx = toward.x - start.x;
+  const dy = toward.y - start.y;
+  if (dx === 0 && dy === 0) return start;
+  const tx = dx > 0 ? (right - start.x) / dx : dx < 0 ? (left - start.x) / dx : Infinity;
+  const ty = dy > 0 ? (bottom - start.y) / dy : dy < 0 ? (top - start.y) / dy : Infinity;
+  const t = Math.min(tx, ty);
+  return {x: start.x + dx * t, y: start.y + dy * t};
+}
+
+function center(node) {
+  return {x: node.x + NODE_W / 2, y: node.y + NODE_H / 2};
+}
+
+function short(text, length) {
+  return text.length > length ? `${text.slice(0, length - 1)}…` : text;
+}
+
+function durationText(spec) {
+  if (!spec) return "";
+  if (spec.name === "") return "no distribution chosen";
+  if (spec.name === "constant") return `constant ${spec.value}`;
+  const distribution = DISTRIBUTIONS.get(spec.name);
+  const shown = distribution.parameters.map((parameter) => `${parameter.name}=${spec[parameter.name]}`);
+  return `${spec.name}(${shown.join(", ")})`;
+}
+
+function nodeDetail(node) {
+  if (node.kind === "exit") return "model.exit";
+  const values = node.values;
+  if (node.kind === "source") {
+    return values.arrivals === "rates" ? "rate schedule" : durationText(values.interarrival);
+  }
+  const servers = `${values.capacity} server${values.capacity === "1" ? "" : "s"}`;
+  const service = values.service_by_type && state.types.length ? "service by type" : durationText(values.service_time);
+  return `${servers}, ${service}`;
+}
+
+function crossings(points, origin, target) {
+  // How many other nodes a path through these points passes over.
+  return state.nodes.filter(
+    (node) =>
+      node !== origin &&
+      node !== target &&
+      points.some((point) => point.x > node.x - 6 && point.x < node.x + NODE_W + 6 && point.y > node.y - 6 && point.y < node.y + NODE_H + 6),
+  ).length;
+}
+
+function curvePoints(start, control, end) {
+  const points = [];
+  for (let step = 1; step < 40; step += 1) {
+    const s = step / 40;
+    points.push({
+      x: (1 - s) * (1 - s) * start.x + 2 * (1 - s) * s * control.x + s * s * end.x,
+      y: (1 - s) * (1 - s) * start.y + 2 * (1 - s) * s * control.y + s * s * end.y,
+    });
+  }
+  return points;
+}
+
+function pathText(start, control, end) {
+  const point = (item) => `${item.x.toFixed(1)},${item.y.toFixed(1)}`;
+  return control ? `M${point(start)} Q${point(control)} ${point(end)}` : `M${point(start)} L${point(end)}`;
+}
+
+// Arrows between the same two nodes, either way, in drawing order.
+function siblings(edge) {
+  return state.edges.filter(
+    (item) => (item.from === edge.from && item.to === edge.to) || (item.from === edge.to && item.to === edge.from),
+  );
+}
+
+function parallelShift(edge) {
+  // Arrows between the same two nodes sit PARALLEL_GAP apart, side by side
+  // across the line between the nodes, which one direction measures for both
+  // ways, so a route and its reverse also separate.
+  const group = siblings(edge);
+  if (group.length < 2) return {x: 0, y: 0};
+  const step = (group.indexOf(edge) - (group.length - 1) / 2) * PARALLEL_GAP;
+  const [first, second] = edge.from < edge.to ? [edge.from, edge.to] : [edge.to, edge.from];
+  const a = center(nodeById(first));
+  const b = center(nodeById(second));
+  const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  return {x: (-(b.y - a.y) / length) * step, y: ((b.x - a.x) / length) * step};
+}
+
+function edgeGeometry(origin, target, shift = {x: 0, y: 0}) {
+  // A straight arrow, or a curve that bends around nodes in its way (e.g., an
+  // arrow that skips a column after Arrange). A parallel arrow runs between
+  // the nodes' centers moved sideways by shift (see parallelShift), and its
+  // ends sit where that line leaves each box, so its head stays outside.
+  const a = {x: center(origin).x + shift.x, y: center(origin).y + shift.y};
+  const b = {x: center(target).x + shift.x, y: center(target).y + shift.y};
+  const start = anchor(origin, b, a);
+  const end = anchor(target, a, b);
+  const straight = {start, end, middle: {x: (start.x + end.x) / 2, y: (start.y + end.y) / 2}};
+  const line = curvePoints(start, straight.middle, end);
+  if (!crossings(line, origin, target)) return {...straight, path: pathText(start, null, end)};
+  const length = Math.hypot(end.x - start.x, end.y - start.y) || 1;
+  const normal = {x: -(end.y - start.y) / length, y: (end.x - start.x) / length};
+  let best = null;
+  for (const bend of [90, -90, 150, -150, 220, -220]) {
+    const control = {x: straight.middle.x + normal.x * bend, y: straight.middle.y + normal.y * bend};
+    // The curve leaves and enters each box toward its control point.
+    const from = anchor(origin, control, a);
+    const to = anchor(target, control, b);
+    const hits = crossings(curvePoints(from, control, to), origin, target);
+    if (!best || hits < best.hits) best = {hits, from, to, control};
+    if (!hits) break;
+  }
+  const {from, to, control} = best;
+  return {
+    start: from,
+    end: to,
+    middle: {x: (from.x + 2 * control.x + to.x) / 4, y: (from.y + 2 * control.y + to.y) / 4},
+    path: pathText(from, control, to),
+  };
+}
+
+function edgeName(edge) {
+  const origin = nodeById(edge.from);
+  const target = nodeById(edge.to);
+  const types = typesText(edge);
+  return `Route from ${origin.name} to ${target.name}${types ? ` for ${types}` : ""}${inBranch(edge) ? `, probability ${edge.probability}` : ""}`;
+}
+
+function renderCanvas() {
+  const width = canvasWidth();
+  const height = canvasHeight();
+  // Redrawing replaces every element, so remember which one had focus.
+  const active = document.activeElement;
+  const focusKey = active && canvas.contains(active) ? active.dataset.focusKey : null;
+  canvas.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const parts = [
+    '<defs>',
+    '<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#455966"></path></marker>',
+    '<marker id="arrow-selected" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d55e00"></path></marker>',
+    '<pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20,0 L0,0 L0,20" fill="none" stroke="#eef2f5" stroke-width="1"></path></pattern>',
+    '</defs>',
+    `<rect class="background" x="0" y="0" width="${width}" height="${height}" fill="url(#grid)"></rect>`,
+  ];
+  // Arrows sit under the nodes, so a node and its route handle always take
+  // the pointer; the keyboard therefore reaches arrows before nodes.
+  const labels = [];
+  for (const edge of state.edges) {
+    const origin = nodeById(edge.from);
+    const target = nodeById(edge.to);
+    const shift = parallelShift(edge);
+    const {middle, path} = edgeGeometry(origin, target, shift);
+    const chosen = selection && selection.type === "edge" && selection.id === edge.id;
+    const data = `data-edge="${escapeHtml(edge.id)}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}"`;
+    const name = escapeHtml(edgeName(edge));
+    parts.push(`<path class="edge${chosen ? " selected" : ""}" d="${path}" marker-end="url(#${chosen ? "arrow-selected" : "arrow"})" ${data}></path>`);
+    parts.push(
+      `<path class="edge-hit" d="${path}" ${data} tabindex="0" role="button" aria-label="${name}" aria-pressed="${chosen ? "true" : "false"}" ` +
+      `data-focus-key="${escapeHtml(`edge:${edge.id}`)}"><title>${name}</title></path>`
+    );
+    const mx = middle.x;
+    const my = middle.y;
+    const types = typesText(edge);
+    if (types) {
+      // A typed arrow names its types, below its probability when it has one,
+      // or above it when the arrow sits above a parallel one.
+      const below = shift.y < 0 ? (inBranch(edge) ? -20 : -6) : inBranch(edge) ? 26 : 4;
+      labels.push(`<text class="edge-types" x="${mx.toFixed(1)}" y="${(my + below).toFixed(1)}" text-anchor="middle">${escapeHtml(short(types, 28))}</text>`);
+    }
+    if (inBranch(edge)) {
+      labels.push(
+        `<foreignObject x="${(mx - 32).toFixed(1)}" y="${(my - 14).toFixed(1)}" width="64" height="28">` +
+        `<input class="edge-prob" ${data} value="${escapeHtml(edge.probability)}" aria-label="Probability from ${escapeHtml(origin.name)} to ${escapeHtml(target.name)}${types ? ` for ${escapeHtml(types)}` : ""}" inputmode="decimal" ` +
+        `data-focus-key="${escapeHtml(`prob:${edge.id}`)}">` +
+        "</foreignObject>"
+      );
+    }
+  }
+  for (const node of state.nodes) {
+    const chosen = selection && selection.type === "node" && selection.id === node.id;
+    const kindLabel = node.kind === "exit" ? "exit" : node.kind;
+    const rx = node.kind === "source" ? 24 : node.kind === "exit" ? 4 : 8;
+    const detail = nodeDetail(node);
+    const name = `${kindLabel} ${node.name}: ${detail}`;
+    parts.push(
+      `<g class="node ${node.kind}${chosen ? " selected" : ""}" data-node-id="${escapeHtml(node.id)}" transform="translate(${node.x},${node.y})" ` +
+      `tabindex="0" role="button" aria-label="${escapeHtml(name)}" aria-pressed="${chosen ? "true" : "false"}" data-focus-key="${escapeHtml(`node:${node.id}`)}">` +
+      `<title>${escapeHtml(node.name)}: ${escapeHtml(detail)}</title>` +
+      `<rect class="body" width="${NODE_W}" height="${NODE_H}" rx="${rx}"></rect>` +
+      `<text class="kind" x="12" y="16">${kindLabel}</text>` +
+      `<text class="name" x="12" y="33">${escapeHtml(short(node.name, 20))}</text>` +
+      `<text class="detail" x="12" y="49">${escapeHtml(short(detail, 24))}</text>` +
+      (node.kind === "exit" ? "" : `<circle class="handle" cx="${NODE_W}" cy="${NODE_H / 2}" r="7"><title>Drag to another node to add a route</title></circle>`) +
+      "</g>"
+    );
+  }
+  parts.push(...labels);
+  if (gesture && gesture.type === "connect" && gesture.point) {
+    const origin = nodeById(gesture.from);
+    parts.push(`<line class="pending" x1="${origin.x + NODE_W}" y1="${origin.y + NODE_H / 2}" x2="${gesture.point.x}" y2="${gesture.point.y}"></line>`);
+  }
+  canvas.innerHTML = parts.join("");
+  if (focusKey) {
+    const again = canvas.querySelector(`[data-focus-key="${CSS.escape(focusKey)}"]`);
+    if (again) again.focus({preventScroll: true});
+  }
+}
+
+function svgPoint(event) {
+  const point = canvas.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  return point.matrixTransform(canvas.getScreenCTM().inverse());
+}
+
+function nodeAt(point) {
+  // The topmost node under a point, i.e., the last one drawn.
+  for (let index = state.nodes.length - 1; index >= 0; index -= 1) {
+    const node = state.nodes[index];
+    if (point.x >= node.x && point.x <= node.x + NODE_W && point.y >= node.y && point.y <= node.y + NODE_H) {
+      return node;
+    }
+  }
+  return null;
+}
+
+function focusCanvasItem(key) {
+  const item = canvas.querySelector(`[data-focus-key="${CSS.escape(key)}"]`);
+  if (item) item.focus({preventScroll: true});
+}
+
+function blurCanvas() {
+  // Redrawing restores focus to the focused canvas item, which would select it
+  // again, so a pointer selection first releases it.
+  if (canvas.contains(document.activeElement)) document.activeElement.blur();
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("input")) return;
+  const point = svgPoint(event);
+  const handle = event.target.closest(".handle");
+  const group = event.target.closest(".node");
+  const edge = event.target.closest(".edge-hit");
+  blurCanvas();
+  if (handle && group) {
+    gesture = {type: "connect", from: group.dataset.nodeId, point};
+    event.preventDefault();
+  } else if (group) {
+    const node = nodeById(group.dataset.nodeId);
+    gesture = {type: "move", id: node.id, dx: point.x - node.x, dy: point.y - node.y, moved: false};
+    selection = {type: "node", id: node.id};
+    renderAll();
+    focusCanvasItem(`node:${node.id}`);
+    event.preventDefault();
+  } else if (edge) {
+    selection = {type: "edge", id: edge.dataset.edge};
+    renderAll();
+    focusCanvasItem(`edge:${edge.dataset.edge}`);
+    event.preventDefault();
+  } else {
+    selection = null;
+    renderAll();
+  }
+});
+
+window.addEventListener("pointermove", (event) => {
+  if (!gesture) return;
+  const point = svgPoint(event);
+  if (gesture.type === "move") {
+    const node = nodeById(gesture.id);
+    // One drag is one undo step.
+    if (!gesture.moved) record(null);
+    node.x = Math.round(Math.min(Math.max(point.x - gesture.dx, 0), MAX_X - NODE_W));
+    node.y = Math.round(Math.min(Math.max(point.y - gesture.dy, 0), MAX_Y - NODE_H));
+    gesture.moved = true;
+  } else {
+    gesture.point = point;
+  }
+  renderCanvas();
+});
+
+window.addEventListener("pointerup", (event) => {
+  if (!gesture) return;
+  const finished = gesture;
+  gesture = null;
+  if (finished.type === "connect") {
+    const target = nodeAt(svgPoint(event));
+    if (target) addEdge(finished.from, target.id);
+    else renderCanvas();
+  } else if (finished.moved) {
+    update();
+  }
+});
+
+canvas.addEventListener("input", (event) => {
+  const input = event.target.closest(".edge-prob");
+  if (!input) return;
+  setProbability(input.dataset.edge, input.value, input);
+});
+
+function setProbability(id, value, source) {
+  record(`prob:${id}`);
+  edgeById(id).probability = value;
+  // Keep the arrow field and the panel field showing the same value.
+  for (const field of document.querySelectorAll(`[data-edge="${CSS.escape(id)}"]`)) {
+    if (field !== source && field.tagName === "INPUT") field.value = value;
+  }
+  update();
+}
+
+function focusPanel() {
+  // The first field of the side panel, or the panel itself when it has none.
+  const field = panel.querySelector("input, select, button");
+  (field || panel).focus();
+}
+
+const MOVES = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
+
+canvas.addEventListener("keydown", (event) => {
+  if (event.target.closest("input")) return;
+  const group = event.target.closest(".node");
+  const edge = event.target.closest(".edge-hit");
+  if ((event.key === "Enter" || event.key === " ") && (group || edge)) {
+    selection = group
+      ? {type: "node", id: group.dataset.nodeId}
+      : {type: "edge", id: edge.dataset.edge};
+    renderAll();
+    focusPanel();
+    event.preventDefault();
+  } else if (group && MOVES[event.key]) {
+    const node = nodeById(group.dataset.nodeId);
+    const step = event.shiftKey ? MOVE_STEP_LARGE : MOVE_STEP;
+    const [dx, dy] = MOVES[event.key];
+    // Arrow-key moves of one node in a row are one undo step.
+    record(`move:${node.id}`);
+    node.x = Math.min(Math.max(node.x + dx * step, 0), MAX_X - NODE_W);
+    node.y = Math.min(Math.max(node.y + dy * step, 0), MAX_Y - NODE_H);
+    renderCanvas();
+    update();
+    announce(`${node.name} moved to ${node.x}, ${node.y}.`);
+    event.preventDefault();
+  }
+});
+
+canvas.addEventListener("focusin", (event) => {
+  // Tabbing to a node or an arrow selects it, so the side panel follows focus.
+  const group = event.target.closest(".node");
+  const edge = event.target.closest(".edge-hit");
+  let next = null;
+  if (group) next = {type: "node", id: group.dataset.nodeId};
+  else if (edge) next = {type: "edge", id: edge.dataset.edge};
+  if (!next || JSON.stringify(next) === JSON.stringify(selection)) return;
+  selection = next;
+  renderAll();
+});
+
+document.addEventListener("focusout", () => {
+  // Leaving a field ends its undo step.
+  editing = null;
+});
+
+document.addEventListener("keydown", (event) => {
+  const field = event.target.closest("input, select, textarea");
+  const key = event.key.toLowerCase();
+  const typing = event.target.closest('input:not([type="radio"]):not([type="checkbox"]), textarea');
+  if ((event.ctrlKey || event.metaKey) && !typing) {
+    // A text field keeps the browser's own undo for its typing.
+    if (key === "z" && !event.shiftKey) {
+      undo();
+      event.preventDefault();
+    } else if ((key === "z" && event.shiftKey) || key === "y") {
+      redo();
+      event.preventDefault();
+    }
+    return;
+  }
+  if (field) return;
+  if (event.key === "Escape") {
+    gesture = null;
+    selection = null;
+    blurCanvas();
+    renderAll();
+    announce("Selection cleared.");
+  } else if ((event.key === "Delete" || event.key === "Backspace") && selection) {
+    const fromCanvas = canvas.contains(event.target);
+    deleteSelection();
+    // The deleted item had focus, so focus returns to the diagram.
+    if (fromCanvas) canvas.focus({preventScroll: true});
+    event.preventDefault();
+  }
+});
+
+// ---------- Arrange ----------
+
+// Left-to-right layers, as flowsim.plots.layout_layers draws model.diagram():
+// the exit alone in the last layer; other nodes by topological generations
+// when the routes are acyclic, else by their fewest steps from a source, with
+// a node that no source reaches in the first layer.
+function arrangeLayers() {
+  const exit = state.nodes.find((node) => node.kind === "exit");
+  const others = state.nodes.filter((node) => node.kind !== "exit").map((node) => node.id);
+  const inner = state.edges.filter((edge) => edge.from !== exit.id && edge.to !== exit.id);
+  const waiting = new Map(others.map((id) => [id, 0]));
+  for (const edge of inner) waiting.set(edge.to, waiting.get(edge.to) + 1);
+  const layers = [];
+  let layer = others.filter((id) => waiting.get(id) === 0);
+  let placed = 0;
+  while (layer.length) {
+    layers.push(layer);
+    placed += layer.length;
+    const next = [];
+    for (const id of layer) {
+      for (const edge of inner) {
+        if (edge.from !== id) continue;
+        waiting.set(edge.to, waiting.get(edge.to) - 1);
+        if (waiting.get(edge.to) === 0) next.push(edge.to);
+      }
+    }
+    layer = next;
+  }
+  if (placed < others.length) {
+    const steps = new Map();
+    const queue = state.nodes.filter((node) => node.kind === "source").map((node) => node.id);
+    for (const id of queue) steps.set(id, 0);
+    while (queue.length) {
+      const id = queue.shift();
+      for (const edge of inner) {
+        if (edge.from === id && !steps.has(edge.to)) {
+          steps.set(edge.to, steps.get(id) + 1);
+          queue.push(edge.to);
+        }
+      }
+    }
+    const deepest = Math.max(0, ...steps.values());
+    layers.length = 0;
+    for (let step = 0; step <= deepest; step += 1) {
+      layers.push(others.filter((id) => (steps.get(id) || 0) === step));
+    }
+  }
+  return [...layers.filter((items) => items.length), [exit.id]];
+}
+
+function arrange() {
+  record(null);
+  const layers = arrangeLayers();
+  // Columns spread across the canvas, up to 240 apart, but never closer than a
+  // node's width plus 40; a long chain widens the canvas instead.
+  const fit = layers.length > 1 ? (WIDTH - 60 - NODE_W) / (layers.length - 1) : 0;
+  const gap = Math.max(NODE_W + 40, Math.min(240, fit));
+  const rows = 95;
+  const tallest = Math.max(...layers.map((items) => items.length));
+  layers.forEach((items, column) => {
+    const top = Math.max(20, (Math.max(MIN_HEIGHT, tallest * rows + 60) - items.length * rows) / 2);
+    items.forEach((id, row) => {
+      const node = nodeById(id);
+      node.x = Math.round(30 + column * gap);
+      node.y = Math.round(top + row * rows);
+    });
+  });
+  renderAll();
+  announce(`Arranged ${state.nodes.length} nodes in ${layers.length} columns.`);
+}
+
+// ---------- Side panel ----------
+
+// Plain words for each behavior choice. A choice the schema adds later still
+// shows, under its code value.
+const CHOICE_TEXT = {
+  shift_end: {
+    finish: "Finish the current job and its transfer, then stop",
+    pause: "Pause the job until that server is back on duty",
+  },
+  external_overflow: {
+    reject: "Turn the arrival away (counted as rejected)",
+    wait: "Hold it in a queue outside the station",
+  },
+  abandon_from: {
+    waiting: "From when the customer joins the waiting line",
+    waiting_and_outside: "Also while the customer waits outside a full buffer",
+  },
+  failure_clock: {
+    available: "Whenever the server is up and on duty, idle or not",
+    busy: "Only while the server is processing a job",
+  },
+};
+
+function numberField(name, label, value, help, optional) {
+  const id = `field-${name}`;
+  return (
+    `<div class="field"><label for="${escapeHtml(id)}">${escapeHtml(label)}</label>` +
+    `<input id="${escapeHtml(id)}" data-field="${escapeHtml(name)}" value="${escapeHtml(value)}" inputmode="decimal"${optional ? ' placeholder="optional"' : ""}>` +
+    (help ? `<p class="help">${escapeHtml(help)}</p>` : "") +
+    "</div>"
+  );
+}
+
+function toggleField(name, label, checked) {
+  return (
+    `<div class="field"><label class="choice"><input type="checkbox" id="field-${name}" data-toggle="${name}"${checked ? " checked" : ""}> ` +
+    `${escapeHtml(label)}</label></div>`
+  );
+}
+
+function choiceFields(name, value, legend, disabled) {
+  const parameter = PARAMETERS.station.get(name);
+  const options = parameter.choices
+    .map((choice) => {
+      const off = disabled && disabled[choice];
+      const text = (CHOICE_TEXT[name] && CHOICE_TEXT[name][choice]) || choice;
+      return (
+        `<label class="choice"><input type="radio" name="${name}" id="field-${name}-${choice}" data-choice="${name}" value="${escapeHtml(choice)}"` +
+        `${value === choice ? " checked" : ""}${off ? " disabled" : ""}> ${escapeHtml(text)} <code>"${escapeHtml(choice)}"</code></label>` +
+        (off ? `<p class="help">${escapeHtml(off)}</p>` : "")
+      );
+    })
+    .join("");
+  const missing = value ? "" : '<p class="help need">Choose one. The builder does not choose this for you.</p>';
+  return `<fieldset><legend>${escapeHtml(legend)} <code>${name}</code></legend>${missing}${options}</fieldset>`;
+}
+
+function rowsFields(name, rows, columns, legend, help) {
+  let html =
+    `<fieldset><legend>${escapeHtml(legend)} <code>${name}</code></legend><p class="help">${escapeHtml(help)}</p>` +
+    `<table class="rows"><thead><tr>${columns.map(([, label]) => `<th scope="col">${escapeHtml(label)}</th>`).join("")}<th><span class="sr-only">Remove</span></th></tr></thead><tbody>`;
+  rows.forEach((row, index) => {
+    html +=
+      "<tr>" +
+      columns
+        .map(
+          ([key, label]) =>
+            `<td><input id="field-${name}-${index}-${key}" data-rows="${name}" data-row="${index}" data-col="${key}" value="${escapeHtml(row[key])}" ` +
+            `inputmode="decimal" aria-label="${escapeHtml(label)}, row ${index + 1}"></td>`,
+        )
+        .join("") +
+      `<td><button type="button" class="remove-row danger" data-rows="${name}" data-row="${index}" aria-label="Remove row ${index + 1}"${rows.length === 1 ? " disabled" : ""}>×</button></td></tr>`;
+  });
+  return `${html}</tbody></table><button type="button" class="add-row" id="add-row-${name}" data-rows="${name}">Add row</button></fieldset>`;
+}
+
+function specAt(node, name, type) {
+  return type ? node.values[BY_TYPE[name]][type] || blankSpec() : node.values[name];
+}
+
+function setSpec(node, name, type, spec) {
+  if (type) node.values[BY_TYPE[name]][type] = spec;
+  else node.values[name] = spec;
+}
+
+function durationFields(name, parameter, spec, type) {
+  const base = type ? `${name}-${type}` : name;
+  const data = `data-duration="${escapeHtml(name)}"${type ? ` data-type="${escapeHtml(type)}"` : ""}`;
+  const blank = spec.name === "" || BLANK_DURATIONS.has(name) || type;
+  const options = (blank ? ['<option value="">choose a distribution</option>'] : [])
+    .concat(['<option value="constant">constant</option>'])
+    .concat(SCHEMA.distributions.map((entry) => `<option value="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</option>`))
+    .join("")
+    .replace(`value="${escapeHtml(spec.name)}"`, `value="${escapeHtml(spec.name)}" selected`);
+  let inner = "";
+  if (spec.name === "constant") {
+    inner = `<div class="param"><label for="field-${escapeHtml(base)}-value">value</label><input id="field-${escapeHtml(base)}-value" ${data} data-key="value" value="${escapeHtml(spec.value)}" inputmode="decimal"></div>`;
+  } else if (spec.name !== "") {
+    const distribution = DISTRIBUTIONS.get(spec.name);
+    inner = `<p class="help">${escapeHtml(distribution.summary)}</p>`;
+    for (const item of distribution.parameters) {
+      const id = `field-${base}-${item.name}`;
+      inner +=
+        `<div class="param"><label for="${escapeHtml(id)}">${escapeHtml(item.name)}</label>` +
+        `<input id="${escapeHtml(id)}" ${data} data-key="${escapeHtml(item.name)}" value="${escapeHtml(spec[item.name])}" inputmode="decimal"></div>` +
+        `<p class="help">${escapeHtml(item.description)}</p>`;
+    }
+  }
+  const legend = type ? `${name} for ${typeName(type)}` : name;
+  return (
+    `<fieldset><legend><code>${escapeHtml(name)}</code>${type ? ` for ${escapeHtml(typeName(type))}` : ""}</legend>` +
+    (type ? "" : `<p class="help" style="margin: 0 0 6px;">${escapeHtml(firstSentence(parameter.description))}</p>`) +
+    `<select id="field-${escapeHtml(base)}-kind" data-duration-kind="${escapeHtml(name)}"${type ? ` data-type="${escapeHtml(type)}"` : ""} aria-label="${escapeHtml(legend)} distribution">${options}</select>` +
+    inner +
+    "</fieldset>"
+  );
+}
+
+function typedDurations(node, name, toggle, label) {
+  // One duration, or one per customer type when the station sets them by type.
+  const parameter = PARAMETERS.station.get(name);
+  let html = state.types.length ? toggleField(toggle, label, node.values[toggle]) : "";
+  if (state.types.length && node.values[toggle]) {
+    for (const type of typeIds()) html += durationFields(name, parameter, specAt(node, name, type), type);
+  } else {
+    html += durationFields(name, parameter, node.values[name]);
+  }
+  return html;
+}
+
+function typeNumbers(node, map, legend, help, sum) {
+  let html = `<fieldset><legend>${legend}</legend><p class="help">${escapeHtml(help)}</p>`;
+  for (const type of typeIds()) {
+    const id = `field-${map}-${type}`;
+    html +=
+      `<div class="param"><label for="${id}">${escapeHtml(typeName(type))}</label>` +
+      `<input id="${id}" data-map="${map}" data-type="${type}" value="${escapeHtml(node.values[map][type] || "")}" inputmode="decimal"></div>`;
+  }
+  if (sum) html += `<p class="help" id="mix-sum">${mixSumText(node)}</p>`;
+  return `${html}</fieldset>`;
+}
+
+function mixSumText(node) {
+  const total = typeIds().reduce((sum, type) => sum + Number(node.values.mix[type] || 0), 0);
+  return `The probabilities sum to ${Number.isFinite(total) ? shownSum(total) : "not a number"} and must sum to 1.`;
+}
+
+function sourceFields(node) {
+  const values = node.values;
+  const description = (name) => firstSentence(PARAMETERS.source.get(name).description);
+  let html =
+    "<fieldset><legend>Arrivals</legend>" +
+    ARRIVAL_MODES.map(
+      (mode) =>
+        `<label class="choice"><input type="radio" name="arrivals" id="field-arrivals-${mode}" data-choice="arrivals" value="${mode}"${values.arrivals === mode ? " checked" : ""}> ` +
+        `${mode === "interarrival" ? "Time between arrivals" : "A rate schedule"} <code>${mode}</code></label>`,
+    ).join("") +
+    "</fieldset>";
+  if (values.arrivals === "rates") {
+    html += rowsFields(
+      "rates",
+      values.rates,
+      [["start", "start time"], ["value", "customers per time unit"]],
+      "Arrival rate schedule",
+      `${description("rates")} The first row starts at time 0, and start times increase.`,
+    );
+  } else {
+    html += durationFields("interarrival", PARAMETERS.source.get("interarrival"), values.interarrival);
+  }
+  html += numberField("first_arrival", "first_arrival", values.first_arrival, description("first_arrival"), true);
+  html += numberField("limit", "limit", values.limit, description("limit"), true);
+  if (state.types.length) {
+    html += typeNumbers(
+      node,
+      "mix",
+      "Type mix <code>types</code>",
+      "The probability that an arrival has each type. Enter 0 for a type this source never sends.",
+      true,
+    );
+  }
+  return html;
+}
+
+function stationFields(node) {
+  const values = node.values;
+  const description = (name) => firstSentence(PARAMETERS.station.get(name).description);
+  let html = numberField("capacity", "capacity", values.capacity, description("capacity"), false);
+  html += typedDurations(node, "service_time", "service_by_type", "A service time for each customer type");
+  html += toggleField("staffing_on", "Staffing changes during the run", values.staffing_on);
+  if (values.staffing_on) {
+    html += rowsFields(
+      "staffing",
+      values.staffing,
+      [["start", "start time"], ["value", "servers on duty"]],
+      "Staffing schedule",
+      "Servers on duty from each start time, between 0 and capacity. The first row starts at time 0, and start times increase.",
+    );
+    html += choiceFields("shift_end", values.shift_end, "When a server goes off duty during a job");
+  }
+  html += numberField(
+    "buffer",
+    "buffer",
+    values.buffer,
+    "Maximum number of customers waiting, at least 0 (0 allows direct service only). Leave it blank for an unlimited waiting room.",
+    true,
+  );
+  if (String(values.buffer).trim() !== "") {
+    html += choiceFields("external_overflow", values.external_overflow, "When the buffer is full, an arriving customer");
+  }
+  html += toggleField("abandon_on", "Customers may leave before service starts", values.abandon_on);
+  if (values.abandon_on) {
+    html += typedDurations(node, "patience", "patience_by_type", "A patience for each customer type");
+    const outside = String(values.buffer).trim() !== "" && values.external_overflow === "wait";
+    html += choiceFields("abandon_from", values.abandon_from, "The patience clock runs", {
+      waiting_and_outside: outside ? null : "Needs a buffer whose full-buffer rule is wait.",
+    });
+  }
+  html += toggleField("failures_on", "Servers can fail and need repair", values.failures_on);
+  if (values.failures_on) {
+    html += durationFields("time_to_failure", PARAMETERS.station.get("time_to_failure"), values.time_to_failure);
+    html += durationFields("repair_time", PARAMETERS.station.get("repair_time"), values.repair_time);
+    html += choiceFields("failure_clock", values.failure_clock, "The time to failure counts down");
+  }
+  if (state.types.length) {
+    html += toggleField("priority_on", "Rank customer types in the waiting line", values.priority_on);
+    if (values.priority_on) {
+      html += typeNumbers(
+        node,
+        "priority",
+        "Ranks <code>priority</code>",
+        "A lower rank leaves the waiting line first, and equal ranks keep the order customers joined it. A higher rank never interrupts a service in progress.",
+        false,
+      );
+    }
+  }
+  return html;
+}
+
+function groupsOf(id) {
+  // The node's route groups, in the order their first arrows were drawn.
+  const groups = new Map();
+  for (const edge of outgoing(id)) {
+    const key = edgeKey(edge);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(edge);
+  }
+  return [...groups.values()];
+}
+
+function routeFields(node) {
+  const routes = outgoing(node.id);
+  let html = `<h2 style="margin-top: 16px;">Routes from ${escapeHtml(node.name)}</h2>`;
+  if (!routes.length) {
+    html += '<p class="help">No onward route yet.</p>';
+  }
+  for (const group of groupsOf(node.id)) {
+    const branch = group.length > 1;
+    if (state.types.length) {
+      const types = typesText(group[0]);
+      html += `<p class="help"><strong>${escapeHtml(types ? `For ${types}` : "For every customer type")}</strong></p>`;
+    }
+    html += `<ul class="routes">`;
+    for (const edge of group) {
+      const target = nodeById(edge.to);
+      const data = `data-edge="${escapeHtml(edge.id)}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}"`;
+      html +=
+        `<li class="${branch ? "" : "single"}"><span>to ${escapeHtml(target.name)}</span>` +
+        (branch ? `<input class="panel-prob" ${data} value="${escapeHtml(edge.probability)}" aria-label="Probability to ${escapeHtml(target.name)}" inputmode="decimal">` : "") +
+        `<button type="button" class="remove-route danger" ${data} title="Remove this route" aria-label="Remove the route to ${escapeHtml(target.name)}">×</button></li>`;
+    }
+    html += "</ul>";
+    if (branch) {
+      html += `<p class="help branch-sum" data-from="${escapeHtml(node.id)}" data-key="${escapeHtml(edgeKey(group[0]))}">${branchSumText(node.id, edgeKey(group[0]))}</p>`;
+    }
+  }
+  // With customer types, a node may route to the same node again for other types.
+  const targets = state.nodes.filter(
+    (item) => item.id !== node.id && item.kind !== "source" && (state.types.length || !routes.some((edge) => edge.to === item.id)),
+  );
+  if (targets.length) {
+    html +=
+      '<div class="add-route"><select id="route-target" aria-label="Route destination">' +
+      targets.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("") +
+      '</select><button type="button" id="add-route">Add route</button></div>';
+  }
+  return html;
+}
+
+function shownSum(total) {
+  // Fifteen digits show a sum that misses one by the tolerance, without float noise.
+  return Number(total.toPrecision(15));
+}
+
+function branchSumText(id, key) {
+  const group = outgoing(id).filter((edge) => edgeKey(edge) === key);
+  const total = group.reduce((sum, edge) => sum + Number(edge.probability), 0);
+  const shown = Number.isFinite(total) ? shownSum(total) : "not a number";
+  return `A branch: each customer takes one route with the probability shown. The probabilities sum to ${shown} and must sum to 1.`;
+}
+
+function refreshSums() {
+  for (const element of document.querySelectorAll(".branch-sum")) {
+    element.textContent = branchSumText(element.dataset.from, element.dataset.key);
+  }
+  const mix = document.getElementById("mix-sum");
+  if (mix && selection && selection.type === "node") mix.textContent = mixSumText(nodeById(selection.id));
+}
+
+function edgeTypeFields(edge) {
+  if (!state.types.length) return "";
+  const routes = outgoing(edge.from);
+  const several = routes.length > 1;
+  const legend = several ? `How customers leaving ${escapeHtml(nodeById(edge.from).name)} choose a route` : "Customer types on this route";
+  let html =
+    `<fieldset><legend>${legend}</legend>` +
+    `<label class="choice"><input type="radio" name="edge-types" id="edge-types-all" data-edge-types="all"${edge.types === null ? " checked" : ""}> ${several ? "By probability, the same for every customer type" : "Every customer type"}</label>` +
+    `<label class="choice"><input type="radio" name="edge-types" id="edge-types-some" data-edge-types="some"${edge.types !== null ? " checked" : ""}> ${several ? "By customer type" : "Only these types"}</label>`;
+  if (edge.types !== null) {
+    // The selected arrow comes first, then the node's other typed arrows, so
+    // one panel sets the types of every arrow that leaves the node.
+    for (const item of [edge, ...routes.filter((other) => other !== edge && other.types !== null)]) {
+      const target = escapeHtml(nodeById(item.to).name);
+      if (several) html += `<p class="help" style="margin-left: 22px;"><strong>to ${target}</strong></p>`;
+      for (const type of typeIds()) {
+        const id = item === edge ? `edge-type-${type}` : `edge-type-${escapeHtml(item.id)}-${type}`;
+        html +=
+          `<label class="choice" style="margin-left: 22px;"><input type="checkbox" id="${id}" data-edge="${escapeHtml(item.id)}" data-edge-type="${type}"${item.types.includes(type) ? " checked" : ""}> ` +
+          `${escapeHtml(typeName(type))}</label>`;
+      }
+    }
+  }
+  return (
+    html +
+    '<p class="help">A node routes every type the same way (by probability when it has two or more arrows), or each type its own way, not both. Arrows from one node with the same types form one route or a branch. Two arrows between the same nodes carry different types.</p></fieldset>'
+  );
+}
+
+function renderPanel() {
+  panel.removeAttribute("data-node-id");
+  if (!selection) {
+    panel.innerHTML =
+      "<h2>Nothing selected</h2>" +
+      '<p class="help">Add a source or a station, then select a node or an arrow to edit it. Every route ends at the exit, which is <code>model.exit</code> in the script.</p>';
+    return;
+  }
+  if (selection.type === "edge") {
+    const edge = edgeById(selection.id);
+    const origin = nodeById(edge.from);
+    const target = nodeById(edge.to);
+    const data = `data-edge="${escapeHtml(edge.id)}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}"`;
+    panel.innerHTML =
+      `<h2>Route</h2><p>From ${escapeHtml(origin.name)} to ${escapeHtml(target.name)}.</p>` +
+      edgeTypeFields(edge) +
+      (inBranch(edge)
+        ? `<div class="field"><label for="edge-probability">probability</label><input id="edge-probability" class="panel-prob" ${data} value="${escapeHtml(edge.probability)}" inputmode="decimal">` +
+          `<p class="help branch-sum" data-from="${escapeHtml(edge.from)}" data-key="${escapeHtml(edgeKey(edge))}">${branchSumText(edge.from, edgeKey(edge))}</p></div>`
+        : '<p class="help">The only route from this node for its customers, so they all take it.</p>') +
+      '<button type="button" id="delete-route" class="danger">Delete route</button>';
+    return;
+  }
+  const node = nodeById(selection.id);
+  panel.dataset.nodeId = node.id;
+  if (node.kind === "exit") {
+    panel.innerHTML =
+      "<h2>Exit</h2>" +
+      '<p class="help">Customers leave the network here. In the script it is <code>model.exit</code>, and its name is always Exit.</p>';
+    return;
+  }
+  let html = `<h2>${node.kind === "source" ? "Source" : "Station"}</h2>`;
+  html += `<div class="field"><label for="field-name">name</label><input id="field-name" value="${escapeHtml(node.name)}"></div>`;
+  html += node.kind === "source" ? sourceFields(node) : stationFields(node);
+  html += routeFields(node);
+  html += `<p style="margin-top: 16px;"><button type="button" id="delete-node" class="danger">Delete ${node.kind}</button></p>`;
+  panel.innerHTML = html;
+}
+
+function refocus(id) {
+  // The panel was redrawn, so focus returns to the control with this id.
+  const element = id && document.getElementById(id);
+  if (element) element.focus();
+}
+
+panel.addEventListener("input", (event) => {
+  const target = event.target;
+  if (target.classList.contains("panel-prob")) {
+    setProbability(target.dataset.edge, target.value, target);
+    refreshSums();
+    return;
+  }
+  if (!selection || selection.type !== "node" || target.dataset.durationKind) return;
+  const node = nodeById(selection.id);
+  // Only a field that edits the model records an undo step; choosing a route
+  // destination, for example, changes nothing until Add route.
+  let redraw = false;
+  if (target.id === "field-name") {
+    record(target.id);
+    node.name = target.value;
+  } else if (target.dataset.duration) {
+    record(target.id);
+    specAt(node, target.dataset.duration, target.dataset.type)[target.dataset.key] = target.value;
+  } else if (target.dataset.field) {
+    record(target.id);
+    const before = String(node.values[target.dataset.field]).trim() === "";
+    node.values[target.dataset.field] = target.value;
+    // A buffer that becomes set or blank shows or hides its overflow choice.
+    redraw = target.dataset.field === "buffer" && before !== (target.value.trim() === "");
+  } else if (target.dataset.map) {
+    record(target.id);
+    node.values[target.dataset.map][target.dataset.type] = target.value;
+  } else if (target.dataset.rows) {
+    record(target.id);
+    node.values[target.dataset.rows][Number(target.dataset.row)][target.dataset.col] = target.value;
+  } else {
+    return;
+  }
+  if (redraw) {
+    const position = target.selectionStart;
+    renderPanel();
+    const again = document.getElementById(target.id);
+    again.focus();
+    again.setSelectionRange(position, position);
+  }
+  renderCanvas();
+  refreshSums();
+  update();
+});
+
+panel.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!selection) return;
+  if (selection.type === "edge") {
+    const edge = edgeById(selection.id);
+    if (target.dataset.edgeTypes) {
+      setRouting(edge.from, target.dataset.edgeTypes === "some");
+    } else if (target.dataset.edgeType) {
+      const item = edgeById(target.dataset.edge);
+      const chosen = new Set(item.types);
+      if (target.checked) chosen.add(target.dataset.edgeType);
+      else chosen.delete(target.dataset.edgeType);
+      setEdgeTypes(item, typeIds().filter((id) => chosen.has(id)));
+    } else {
+      return;
+    }
+    refocus(target.id);
+    return;
+  }
+  const node = nodeById(selection.id);
+  if (target.dataset.durationKind) {
+    record(null);
+    const name = target.dataset.durationKind;
+    // Patience and failure durations get blank parameters, never example values.
+    const spec = target.value === "" ? blankSpec() : distributionSpec(target.value, BLANK_DURATIONS.has(name));
+    setSpec(node, name, target.dataset.type, spec);
+  } else if (target.dataset.toggle) {
+    record(null);
+    const name = target.dataset.toggle;
+    node.values[name] = target.checked;
+    // Switching to per-type durations starts each type from the station's own
+    // single duration, which the student set.
+    for (const [single, map] of Object.entries(BY_TYPE)) {
+      if (name === `${single === "service_time" ? "service" : single}_by_type` && target.checked) {
+        for (const type of typeIds()) {
+          if (!node.values[map][type]) node.values[map][type] = JSON.parse(JSON.stringify(node.values[single]));
+        }
+      }
+    }
+  } else if (target.dataset.choice) {
+    record(null);
+    node.values[target.dataset.choice] = target.value;
+  } else {
+    return;
+  }
+  renderAll();
+  refocus(target.id);
+});
+
+panel.addEventListener("click", (event) => {
+  const target = event.target;
+  if (target.id === "add-route") {
+    addEdge(selection.id, document.getElementById("route-target").value);
+    // The panel was redrawn, so keyboard focus returns to the route controls,
+    // unless the new route opened its own panel to ask how customers split.
+    if (selection.type === "node") (document.getElementById("route-target") || panel).focus();
+  } else if (target.classList.contains("remove-route")) {
+    removeEdge(target.dataset.edge);
+    (document.getElementById("route-target") || panel).focus();
+  } else if (target.id === "delete-node" || target.id === "delete-route") {
+    deleteSelection();
+  } else if (target.classList.contains("add-row")) {
+    record(null);
+    const rows = nodeById(selection.id).values[target.dataset.rows];
+    rows.push(emptyRow());
+    renderAll();
+    refocus(`field-${target.dataset.rows}-${rows.length - 1}-start`);
+  } else if (target.classList.contains("remove-row")) {
+    record(null);
+    nodeById(selection.id).values[target.dataset.rows].splice(Number(target.dataset.row), 1);
+    renderAll();
+    refocus(`add-row-${target.dataset.rows}`);
+  }
+});
+
+// ---------- Customer type list ----------
+
+function renderTypes() {
+  document.getElementById("types-list").innerHTML = state.types
+    .map(
+      (item, index) =>
+        `<li><input id="type-name-${item.id}" data-type-name="${item.id}" value="${escapeHtml(item.name)}" aria-label="Name of customer type ${index + 1}">` +
+        `<button type="button" class="remove-type danger" data-type="${item.id}" aria-label="Remove customer type ${escapeHtml(item.name)}">×</button></li>`,
+    )
+    .join("");
+}
+
+document.getElementById("types-box").addEventListener("input", (event) => {
+  const id = event.target.dataset.typeName;
+  if (!id) return;
+  record(event.target.id);
+  state.types.find((item) => item.id === id).name = event.target.value;
+  renderCanvas();
+  renderPanel();
+  update();
+});
+
+document.getElementById("types-box").addEventListener("click", (event) => {
+  if (event.target.id === "add-type") {
+    addType();
+  } else if (event.target.classList.contains("remove-type")) {
+    removeType(event.target.dataset.type);
+    document.getElementById("add-type").focus();
+  }
+});
+
+// ---------- Checks ----------
+
+function checkNumber(raw, rule, label, problems) {
+  // rule: kind ("number" or "integer"), minimum, exclusive, required.
+  const text = String(raw).trim();
+  if (text === "") {
+    if (rule.required) problems.push(`${label} needs a value.`);
+    return;
+  }
+  if (rule.kind === "integer") {
+    // Integers are written out as typed, so they must be plain digits that a
+    // number holds exactly.
+    if (!/^\d+$/.test(text) || !Number.isSafeInteger(Number(text))) {
+      problems.push(`${label} must be a whole number written in digits, from 0 to ${Number.MAX_SAFE_INTEGER}, not ${text}.`);
+      return;
+    }
+  }
+  const value = Number(text);
+  if (!Number.isFinite(value)) {
+    problems.push(`${label} must be a number, not "${text}".`);
+    return;
+  }
+  if (rule.minimum !== undefined) {
+    if (rule.exclusive && value <= rule.minimum) problems.push(`${label} must be greater than ${rule.minimum}, not ${text}.`);
+    if (!rule.exclusive && value < rule.minimum) problems.push(`${label} must be at least ${rule.minimum}, not ${text}.`);
+  }
+}
+
+function checkDuration(spec, parameter, label, problems) {
+  if (spec.name === "") {
+    problems.push(`${label} needs a distribution or a constant.`);
+    return;
+  }
+  if (spec.name === "constant") {
+    // Every FlowSim duration is at least 0 unless its description says more.
+    const minimum = parameter.minimum === undefined ? 0 : parameter.minimum;
+    checkNumber(spec.value, {kind: "number", minimum, exclusive: parameter.exclusive, required: true}, label, problems);
+    return;
+  }
+  for (const item of DISTRIBUTIONS.get(spec.name).parameters) {
+    checkNumber(spec[item.name], {...item, required: true}, `${label} ${spec.name} ${item.name}`, problems);
+  }
+}
+
+function checkRows(rows, label, value, problems) {
+  // value: the rule for the second column, with its label.
+  rows.forEach((row, index) => {
+    checkNumber(row.start, {kind: "number", minimum: 0, required: true}, `${label} row ${index + 1} start time`, problems);
+    checkNumber(row.value, {...value, required: true}, `${label} row ${index + 1} ${value.label}`, problems);
+  });
+  const starts = rows.map((row) => String(row.start).trim());
+  if (starts[0] !== "" && Number(starts[0]) !== 0) problems.push(`${label} must start at time 0.`);
+  for (let index = 1; index < rows.length; index += 1) {
+    if (starts[index] !== "" && starts[index - 1] !== "" && Number(starts[index]) <= Number(starts[index - 1])) {
+      problems.push(`${label} start times must increase from row to row.`);
+      break;
+    }
+  }
+}
+
+function checkTypedDurations(node, name, toggle, label, problems) {
+  const parameter = PARAMETERS.station.get(name);
+  if (state.types.length && node.values[toggle]) {
+    for (const type of typeIds()) checkDuration(specAt(node, name, type), parameter, `${label} for ${typeName(type)}`, problems);
+  } else {
+    checkDuration(node.values[name], parameter, label, problems);
+  }
+}
+
+function sourceProblems(node, found) {
+  const values = node.values;
+  if (values.arrivals === "rates") {
+    checkRows(values.rates, `${node.name}: rate schedule`, {kind: "number", minimum: 0, label: "rate"}, found);
+  } else {
+    checkDuration(values.interarrival, PARAMETERS.source.get("interarrival"), `${node.name}: interarrival`, found);
+  }
+  for (const name of ["first_arrival", "limit"]) {
+    checkNumber(values[name], PARAMETERS.source.get(name), `${node.name}: ${name}`, found);
+  }
+  if (!state.types.length) return;
+  const before = found.length;
+  for (const type of typeIds()) {
+    checkNumber(values.mix[type] || "", {kind: "number", minimum: 0, required: true}, `${node.name}: probability of ${typeName(type)}`, found);
+  }
+  if (found.length > before) return;
+  const total = typeIds().reduce((sum, type) => sum + Number(values.mix[type]), 0);
+  if (total === 0) found.push(`${node.name}: at least one customer type needs a probability above 0.`);
+  else if (Math.abs(total - 1) > BRANCH_SUM_TOLERANCE) found.push(`${node.name}: type probabilities sum to ${shownSum(total)}, not 1.`);
+}
+
+function stationProblems(node, found) {
+  const values = node.values;
+  const name = node.name;
+  checkNumber(values.capacity, PARAMETERS.station.get("capacity"), `${name}: capacity`, found);
+  checkTypedDurations(node, "service_time", "service_by_type", `${name}: service_time`, found);
+  if (values.staffing_on) {
+    checkRows(values.staffing, `${name}: staffing schedule`, {kind: "integer", minimum: 0, label: "servers on duty"}, found);
+    const capacity = Number(values.capacity);
+    if (Number.isFinite(capacity) && values.staffing.some((row) => Number(row.value) > capacity)) {
+      found.push(`${name}: servers on duty cannot exceed capacity ${capacity}.`);
+    }
+    if (!values.shift_end) found.push(`${name}: choose what an off-duty server does with its current job (shift_end).`);
+  }
+  const buffered = String(values.buffer).trim() !== "";
+  if (buffered) {
+    checkNumber(values.buffer, PARAMETERS.station.get("buffer"), `${name}: buffer`, found);
+    if (!values.external_overflow) found.push(`${name}: choose what an arrival does when the buffer is full (external_overflow).`);
+  }
+  if (values.abandon_on) {
+    checkTypedDurations(node, "patience", "patience_by_type", `${name}: patience`, found);
+    if (!values.abandon_from) found.push(`${name}: choose when the patience clock runs (abandon_from).`);
+    else if (values.abandon_from === "waiting_and_outside" && !(buffered && values.external_overflow === "wait")) {
+      found.push(`${name}: abandon_from "waiting_and_outside" needs a buffer with external_overflow "wait".`);
+    }
+  }
+  if (values.failures_on) {
+    for (const field of ["time_to_failure", "repair_time"]) {
+      checkDuration(values[field], PARAMETERS.station.get(field), `${name}: ${field}`, found);
+    }
+    if (!values.failure_clock) found.push(`${name}: choose when the time to failure counts down (failure_clock).`);
+  }
+  if (state.types.length && values.priority_on) {
+    for (const type of typeIds()) {
+      checkNumber(values.priority[type] || "", {kind: "number", minimum: 0, required: true}, `${name}: rank of ${typeName(type)}`, found);
+    }
+  }
+}
+
+function reachable() {
+  const seen = new Set();
+  const stack = state.nodes.filter((node) => node.kind === "source").map((node) => node.id);
+  while (stack.length) {
+    const id = stack.pop();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const edge of outgoing(id)) stack.push(edge.to);
+  }
+  return seen;
+}
+
+function findCycle(edges) {
+  // A loop in the given arrows as a list of node ids, or null.
+  const status = new Map();
+  const path = [];
+  const outs = (id) => edges.filter((edge) => edge.from === id);
+  function visit(id) {
+    status.set(id, "open");
+    path.push(id);
+    for (const edge of outs(id)) {
+      if (status.get(edge.to) === "open") return path.slice(path.indexOf(edge.to));
+      if (!status.has(edge.to)) {
+        const found = visit(edge.to);
+        if (found) return found;
+      }
+    }
+    path.pop();
+    status.set(id, "done");
+    return null;
+  }
+  for (const node of state.nodes) {
+    if (!status.has(node.id)) {
+      const found = visit(node.id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function onLoops() {
+  // Nodes on some loop of arrows across all types (strongly connected
+  // components with more than one node), by Tarjan's algorithm.
+  let index = 0;
+  const order = new Map();
+  const low = new Map();
+  const stack = [];
+  const onStack = new Set();
+  const result = new Set();
+  function connect(id) {
+    order.set(id, index);
+    low.set(id, index);
+    index += 1;
+    stack.push(id);
+    onStack.add(id);
+    for (const edge of outgoing(id)) {
+      if (!order.has(edge.to)) {
+        connect(edge.to);
+        low.set(id, Math.min(low.get(id), low.get(edge.to)));
+      } else if (onStack.has(edge.to)) {
+        low.set(id, Math.min(low.get(id), order.get(edge.to)));
+      }
+    }
+    if (low.get(id) === order.get(id)) {
+      const component = [];
+      let member;
+      do {
+        member = stack.pop();
+        onStack.delete(member);
+        component.push(member);
+      } while (member !== id);
+      if (component.length > 1) component.forEach((item) => result.add(item));
+    }
+  }
+  for (const node of state.nodes) if (!order.has(node.id)) connect(node.id);
+  return result;
+}
+
+function ruleFor(id, type) {
+  // The arrows a customer of this type follows from a node, as FlowSim does:
+  // a route for every type wins, else the route listing the type.
+  const routes = outgoing(id);
+  const every = routes.filter((edge) => edge.types === null);
+  if (every.length) return every;
+  return routes.filter((edge) => edge.types !== null && edge.types.includes(type));
+}
+
+function routingProblems(found) {
+  const names = (ids) => ids.map((id) => nodeById(id).name).join(", ");
+  for (const node of state.nodes) {
+    const routes = outgoing(node.id);
+    const typed = routes.filter((edge) => edge.types !== null);
+    if (typed.length && typed.length < routes.length) {
+      found.push(`${node.name}: some arrows carry every type and some only named types. Use one or the other.`);
+    }
+    for (const edge of typed) {
+      if (!edge.types.length) found.push(`Route from ${node.name} to ${nodeById(edge.to).name} needs at least one customer type.`);
+    }
+    for (const type of typeIds()) {
+      const keys = new Set(typed.filter((edge) => edge.types.includes(type)).map(edgeKey));
+      if (keys.size > 1) found.push(`${node.name}: type ${typeName(type)} is on two different routes from it.`);
+    }
+    // Two arrows between the same nodes must carry different types. Arrows that
+    // mix every type with named types, or carry a type on two routes, were
+    // listed above.
+    const byTarget = new Map();
+    for (const edge of routes) byTarget.set(edge.to, [...(byTarget.get(edge.to) || []), edge]);
+    for (const [to, pair] of byTarget) {
+      if (pair.length < 2) continue;
+      const target = nodeById(to).name;
+      if (pair.every((edge) => edge.types === null)) {
+        found.push(`${node.name} has ${pair.length} routes to ${target} for every type. Give each its own customer types, or remove one.`);
+      } else if (pair.every((edge) => edge.types !== null)) {
+        for (const type of typeIds()) {
+          const carrying = pair.filter((edge) => edge.types.includes(type));
+          if (carrying.length > 1 && new Set(carrying.map(edgeKey)).size === 1) {
+            found.push(`${node.name} has two routes to ${target} for type ${typeName(type)}.`);
+          }
+        }
+      }
+    }
+    for (const group of groupsOf(node.id)) {
+      if (group.length < 2) continue;
+      let total = 0;
+      for (const edge of group) {
+        checkNumber(edge.probability, {kind: "number", minimum: 0, exclusive: true, required: true}, `Probability from ${node.name} to ${nodeById(edge.to).name}`, found);
+        total += Number(edge.probability);
+      }
+      if (Number.isFinite(total) && Math.abs(total - 1) > BRANCH_SUM_TOLERANCE) {
+        const types = typesText(group[0]);
+        found.push(`Branch probabilities from ${node.name}${types ? ` for ${types}` : ""} sum to ${shownSum(total)}, not 1.`);
+      }
+    }
+  }
+  // Each type that a source sends must find a route at every node it reaches.
+  for (const source of state.nodes.filter((node) => node.kind === "source")) {
+    const kinds = state.types.length ? typeIds().filter((type) => Number(source.values.mix[type]) > 0) : [];
+    for (const type of kinds) {
+      const seen = new Set();
+      const stack = [source.id];
+      while (stack.length) {
+        const id = stack.pop();
+        const node = nodeById(id);
+        if (seen.has(id) || node.kind === "exit") continue;
+        seen.add(id);
+        const rule = ruleFor(id, type);
+        if (!rule.length && outgoing(id).length) {
+          found.push(`${node.name} has no route for type ${typeName(type)}, which can reach it from ${source.name}.`);
+        }
+        stack.push(...rule.map((edge) => edge.to));
+      }
+    }
+  }
+  // The arrows for every type, and each type's arrows, must have no loop.
+  const every = state.edges.filter((edge) => edge.types === null);
+  const loop = findCycle(every);
+  if (loop) found.push(`The routes form a loop through ${names(loop)}. FlowSim supports acyclic routes only.`);
+  for (const type of typeIds()) {
+    const followed = state.nodes.flatMap((node) => ruleFor(node.id, type));
+    const typeLoop = findCycle(followed);
+    if (typeLoop) found.push(`The routes for type ${typeName(type)} form a loop through ${names(typeLoop)}. Each type's routes must be acyclic.`);
+  }
+  // Loops across types may pass only through unlimited buffers.
+  for (const id of onLoops()) {
+    const node = nodeById(id);
+    if (node.kind === "station" && String(node.values.buffer).trim() !== "") {
+      found.push(`${node.name} has a finite buffer and lies on a loop of routes across customer types, so its buffer must be unlimited.`);
+    }
+  }
+}
+
+function problems() {
+  const found = [];
+  if (!state.time_unit.trim()) found.push("The time unit needs a label, e.g., minutes.");
+  checkNumber(state.run.duration, PARAMETERS.run.get("duration"), "Run length", found);
+  checkNumber(state.run.seed, {...PARAMETERS.run.get("seed"), required: true}, "Seed", found);
+  const typeNames = new Map();
+  for (const item of state.types) {
+    const name = item.name.trim();
+    if (!name) found.push("Every customer type needs a name.");
+    else typeNames.set(name, (typeNames.get(name) || 0) + 1);
+  }
+  for (const [name, count] of typeNames) {
+    if (count > 1) found.push(`${count} customer types are named "${name}". Type names must be unique.`);
+  }
+  const nodes = state.nodes.filter((node) => node.kind !== "exit");
+  if (!nodes.some((node) => node.kind === "source")) found.push("Add a source, where customers arrive.");
+  const counts = new Map();
+  for (const node of state.nodes) counts.set(node.name.trim(), (counts.get(node.name.trim()) || 0) + 1);
+  for (const [name, count] of counts) {
+    if (name === "") found.push("Every node needs a name.");
+    else if (count > 1) found.push(`${count} nodes are named "${name}". Names must be unique${name === "Exit" ? ", and the exit is named Exit" : ""}.`);
+  }
+  for (const node of nodes) {
+    if (node.kind === "source") sourceProblems(node, found);
+    else stationProblems(node, found);
+  }
+  const reached = reachable();
+  for (const node of state.nodes) {
+    const notes = [];
+    if (node.kind !== "source" && !reached.has(node.id)) notes.push("No source reaches it.");
+    if (node.kind !== "exit" && !outgoing(node.id).length) notes.push("It has no onward route. End its route at the exit.");
+    if (notes.length) found.push(`${node.name}: ${notes.join(" ")}`);
+  }
+  routingProblems(found);
+  return [...new Set(found)];
+}
+
+function renderProblems() {
+  const list = document.getElementById("problems");
+  const found = problems();
+  if (!found.length) {
+    list.innerHTML =
+      '<li class="ok">No problems found in the page. The page checks routes, probabilities, choices, and single values; ' +
+      "the distribution constructors check how parameters relate (e.g., low below high) and FlowSim validates the model when the script runs.</li>";
+  } else {
+    list.innerHTML = found.map((text) => `<li>${escapeHtml(text)}</li>`).join("");
+  }
+}
+
+// ---------- Code generation ----------
+
+function pyString(text) {
+  return JSON.stringify(text);
+}
+
+function pyNumber(raw, kind) {
+  const text = String(raw).trim();
+  const value = Number(text);
+  if (text === "" || !Number.isFinite(value)) return "None";
+  if (kind === "integer") {
+    // Emit the typed digits, never a rounded number. Python rejects leading zeros.
+    return /^\d+$/.test(text) && Number.isSafeInteger(value) ? text.replace(/^0+(?=\d)/, "") : "None";
+  }
+  return String(value);
+}
+
+function identifiers() {
+  const used = new Set();
+  const names = new Map();
+  for (const node of state.nodes) {
+    if (node.kind === "exit") {
+      names.set(node.id, "model.exit");
+      continue;
+    }
+    let base = node.name
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    if (!base) base = node.kind;
+    if (/^[0-9]/.test(base)) base = `${node.kind}_${base}`;
+    if (RESERVED.has(base)) base = `${base}_${node.kind}`;
+    let name = base;
+    let index = 2;
+    while (used.has(name) || RESERVED.has(name)) {
+      name = `${base}_${index}`;
+      index += 1;
+    }
+    used.add(name);
+    names.set(node.id, name);
+  }
+  return names;
+}
+
+function pad(indent) {
+  return " ".repeat(indent);
+}
+
+// An expression is code text, a call {fn, args: [[keyword or null, expression]],
+// magic}, or a collection {open, close, items: [[prefix, expression]]}. The page
+// writes code exactly as ruff format leaves it. A magic call ends in a trailing
+// comma when split, so ruff keeps it split; FlowSim's style splits every call
+// with two or more keywords.
+function pyCall(fn, args, magic = true) {
+  return {fn, args, magic};
+}
+
+function pyCollection(open, close, items) {
+  return {open, close, items};
+}
+
+function flatText(expression) {
+  // The expression on one line, or null when it must span lines.
+  if (typeof expression === "string") return expression;
+  if (expression.fn !== undefined) {
+    if (expression.magic && expression.args.length >= 2) return null;
+    const parts = expression.args.map(([key, value]) => {
+      const text = flatText(value);
+      return text === null ? null : `${key === null ? "" : `${key}=`}${text}`;
+    });
+    return parts.includes(null) ? null : `${expression.fn}(${parts.join(", ")})`;
+  }
+  const parts = expression.items.map(([prefix, value]) => {
+    const text = flatText(value);
+    return text === null ? null : `${prefix}${text}`;
+  });
+  return parts.includes(null) ? null : `${expression.open}${parts.join(", ")}${expression.close}`;
+}
+
+// Render an expression that starts at a column on a line indented by indent,
+// followed by suffix characters (e.g., 1 for a trailing comma).
+function render(expression, indent, column, suffix) {
+  const flat = flatText(expression);
+  if (flat !== null && column + flat.length + suffix <= LINE) return flat;
+  if (typeof expression === "string") return expression;
+  const inner = indent + 4;
+  const splitItems = (items, close) =>
+    `\n${items.map(([prefix, value]) => `${pad(inner)}${prefix}${render(value, inner, inner + prefix.length, 1)},\n`).join("")}${pad(indent)}${close}`;
+  if (expression.fn !== undefined) {
+    const items = expression.args.map(([key, value]) => [key === null ? "" : `${key}=`, value]);
+    if (!expression.magic) {
+      // ruff first tries every argument on one indented line.
+      const parts = items.map(([prefix, value]) => {
+        const text = flatText(value);
+        return text === null ? null : `${prefix}${text}`;
+      });
+      const body = parts.join(", ");
+      if (!parts.includes(null) && inner + body.length <= LINE) return `${expression.fn}(\n${pad(inner)}${body}\n${pad(indent)})`;
+      if (items.length === 1) {
+        const [prefix, value] = items[0];
+        return `${expression.fn}(\n${pad(inner)}${prefix}${render(value, inner, inner + prefix.length, 0)}\n${pad(indent)})`;
+      }
+    }
+    return `${expression.fn}(${splitItems(items, ")")}`;
+  }
+  return `${expression.open}${splitItems(expression.items, expression.close)}`;
+}
+
+function statement(prefix, expression) {
+  return `${prefix}${render(expression, 0, prefix.length, 0)}`;
+}
+
+function durationCall(spec, used) {
+  if (spec.name === "") return "None";
+  if (spec.name === "constant") return pyNumber(spec.value, "number");
+  used.add(spec.name);
+  const distribution = DISTRIBUTIONS.get(spec.name);
+  return pyCall(
+    spec.name,
+    distribution.parameters.map((item) => [item.name, pyNumber(spec[item.name], item.kind)]),
+  );
+}
+
+function typeMap(entries) {
+  return pyCollection("{", "}", entries.map(([type, value]) => [`${pyString(typeName(type).trim())}: `, value]));
+}
+
+function typedDuration(node, name, toggle, used) {
+  if (state.types.length && node.values[toggle]) {
+    return typeMap(typeIds().map((type) => [type, durationCall(specAt(node, name, type), used)]));
+  }
+  return durationCall(node.values[name], used);
+}
+
+function scheduleList(rows, kind) {
+  return pyCollection(
+    "[",
+    "]",
+    rows.map((row) => ["", pyCollection("(", ")", [["", pyNumber(row.start, "number")], ["", pyNumber(row.value, kind)]])]),
+  );
+}
+
+function choiceCode(value) {
+  // A missing choice is written as None, so FlowSim's own error names it.
+  return value ? pyString(value) : "None";
+}
+
+function sourceArgs(node, used) {
+  const values = node.values;
+  const args = [["name", pyString(node.name.trim())]];
+  if (values.arrivals === "interarrival") args.push(["interarrival", durationCall(values.interarrival, used)]);
+  for (const name of ["first_arrival", "limit"]) {
+    if (String(values[name]).trim() !== "") args.push([name, pyNumber(values[name], PARAMETERS.source.get(name).kind)]);
+  }
+  if (values.arrivals === "rates") args.push(["rates", scheduleList(values.rates, "number")]);
+  if (state.types.length) {
+    // A type this source never sends (probability 0) is left out of its mix.
+    const entries = typeIds().filter((type) => String(values.mix[type] || "").trim() === "" || Number(values.mix[type]) !== 0);
+    args.push(["types", typeMap(entries.map((type) => [type, pyNumber(values.mix[type] || "", "number")]))]);
+  }
+  return args;
+}
+
+function stationArgs(node, used) {
+  const values = node.values;
+  const args = [
+    ["name", pyString(node.name.trim())],
+    ["capacity", pyNumber(values.capacity, "integer")],
+    ["service_time", typedDuration(node, "service_time", "service_by_type", used)],
+  ];
+  if (values.staffing_on) {
+    args.push(["staffing", scheduleList(values.staffing, "integer")]);
+    args.push(["shift_end", choiceCode(values.shift_end)]);
+  }
+  if (String(values.buffer).trim() !== "") {
+    args.push(["buffer", pyNumber(values.buffer, "integer")]);
+    args.push(["external_overflow", choiceCode(values.external_overflow)]);
+  }
+  if (values.failures_on) {
+    args.push(["time_to_failure", durationCall(values.time_to_failure, used)]);
+    args.push(["repair_time", durationCall(values.repair_time, used)]);
+    args.push(["failure_clock", choiceCode(values.failure_clock)]);
+  }
+  if (state.types.length && values.priority_on) {
+    args.push(["priority", typeMap(typeIds().map((type) => [type, pyNumber(values.priority[type] || "", "number")]))]);
+  }
+  if (values.abandon_on) {
+    args.push(["patience", typedDuration(node, "patience", "patience_by_type", used)]);
+    args.push(["abandon_from", choiceCode(values.abandon_from)]);
+  }
+  return args;
+}
+
+function routeStatements(edges) {
+  // Chains of single arrows become one route; a node with several arrows in
+  // the given set becomes a branch.
+  const outs = new Map(state.nodes.map((node) => [node.id, edges.filter((edge) => edge.from === node.id)]));
+  const done = new Set();
+  const statements = [];
+  const queue = state.nodes.filter((node) => node.kind === "source").map((node) => node.id);
+  const visited = new Set();
+  function handle(id) {
+    if (done.has(id)) return [];
+    const routes = outs.get(id);
+    if (routes.length === 1) {
+      const chain = [id];
+      let current = id;
+      while (outs.get(current).length === 1 && !done.has(current)) {
+        done.add(current);
+        const next = outs.get(current)[0].to;
+        const repeat = chain.includes(next);
+        chain.push(next);
+        if (repeat) break;
+        current = next;
+      }
+      statements.push({type: "route", nodes: chain});
+      return [chain[chain.length - 1]];
+    }
+    if (routes.length > 1) {
+      done.add(id);
+      statements.push({type: "branch", origin: id, routes});
+      return routes.map((edge) => edge.to);
+    }
+    return [];
+  }
+  while (queue.length) {
+    const id = queue.shift();
+    if (visited.has(id)) continue;
+    visited.add(id);
+    queue.push(...handle(id));
+  }
+  for (const node of state.nodes) handle(node.id);
+  return statements;
+}
+
+function routeCode(names) {
+  // Routes for every type first, then each set of types in the order drawn.
+  const keys = [...new Set(state.edges.map(edgeKey))].sort((a, b) => (a === "*" ? -1 : b === "*" ? 1 : 0));
+  const lines = [];
+  for (const key of keys) {
+    const edges = state.edges.filter((edge) => edgeKey(edge) === key);
+    const types =
+      key === "*"
+        ? []
+        : [["types", pyCollection("[", "]", (key ? key.split("|") : []).map((type) => ["", pyString(typeName(type).trim())]))]];
+    for (const item of routeStatements(edges)) {
+      if (item.type === "route") {
+        const nodes = pyCollection("[", "]", item.nodes.map((id) => ["", names.get(id)]));
+        lines.push(statement("", pyCall("model.route", [[null, nodes], ...types], false)));
+      } else {
+        const choices = pyCollection("{", "}", item.routes.map((edge) => [`${names.get(edge.to)}: `, pyNumber(edge.probability, "number")]));
+        lines.push(statement("", pyCall("model.branch", [[null, names.get(item.origin)], [null, choices], ...types], false)));
+      }
+    }
+  }
+  return lines;
+}
+
+function generate() {
+  const names = identifiers();
+  const used = new Set();
+  const body = [statement("model = ", pyCall("Model", [["time_unit", pyString(state.time_unit.trim())]]))];
+  for (const node of state.nodes) {
+    if (node.kind === "exit") continue;
+    const args = node.kind === "source" ? sourceArgs(node, used) : stationArgs(node, used);
+    body.push(statement(`${names.get(node.id)} = `, pyCall(`model.${node.kind}`, args)));
+  }
+  body.push(...routeCode(names));
+  const run = [
+    ["duration", pyNumber(state.run.duration, "number")],
+    ["seed", pyNumber(state.run.seed, "integer")],
+  ];
+  if (state.run.drain) run.push(["drain", "True"]);
+  const imports = ["Model", ...[...used].sort()];
+  return [
+    '"""A FlowSim model drawn in the model builder. Edit it like any FlowSim script."""',
+    "",
+    `from flowsim import ${imports.join(", ")}`,
+    "",
+    ...body,
+    "",
+    statement("results = ", pyCall("model.run", run)),
+    "print(results)",
+    "",
+  ].join("\n");
+}
+
+// ---------- Save and load ----------
+
+function jsonNumber(raw) {
+  const text = String(raw).trim();
+  if (text === "") return null;
+  const value = Number(text);
+  return Number.isFinite(value) ? value : text;
+}
+
+function jsonDuration(spec) {
+  const result = {name: spec.name};
+  for (const [key, value] of Object.entries(spec)) {
+    if (key !== "name") result[key] = jsonNumber(value);
+  }
+  return result;
+}
+
+function jsonField(kind, value) {
+  if (kind === "duration") return jsonDuration(value);
+  if (kind === "number") return jsonNumber(value);
+  if (kind === "rows") return value.map((row) => ({start: jsonNumber(row.start), value: jsonNumber(row.value)}));
+  if (kind === "numbers") return Object.fromEntries(Object.entries(value).map(([type, item]) => [type, jsonNumber(item)]));
+  if (kind === "durations") return Object.fromEntries(Object.entries(value).map(([type, item]) => [type, jsonDuration(item)]));
+  return value;
+}
+
+function toJson() {
+  return {
+    format: FORMAT,
+    version: SCHEMA.format_version,
+    flowsim_version: SCHEMA.flowsim_version,
+    time_unit: state.time_unit,
+    run: {duration: jsonNumber(state.run.duration), seed: jsonNumber(state.run.seed), drain: state.run.drain},
+    types: state.types.map((item) => ({id: item.id, name: item.name})),
+    nodes: state.nodes.map((node) => {
+      const entry = {id: node.id, kind: node.kind, name: node.name, x: node.x, y: node.y};
+      for (const [name, kind] of Object.entries(FIELDS[node.kind] || {})) entry[name] = jsonField(kind, node.values[name]);
+      return entry;
+    }),
+    edges: state.edges.map((edge) => ({from: edge.from, to: edge.to, probability: jsonNumber(edge.probability), types: edge.types})),
+  };
+}
+
+function text(value) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,40}$/;
+// The page names customer types t1, t2, and so on. Type ids are object keys, so
+// no other form (e.g., __proto__) is read.
+const TYPE_ID_PATTERN = /^t[0-9]{1,9}$/;
+
+function loadDuration(value, label) {
+  if (!value || typeof value !== "object" || (value.name !== "" && value.name !== "constant" && !DISTRIBUTIONS.has(value.name))) {
+    throw new Error(`${label}: unknown distribution.`);
+  }
+  const spec = {name: value.name};
+  const keys = value.name === "" ? [] : value.name === "constant" ? ["value"] : DISTRIBUTIONS.get(value.name).parameters.map((item) => item.name);
+  for (const key of keys) spec[key] = text(value[key]);
+  return spec;
+}
+
+function loadField(node, name, kind, value, types) {
+  // Read one saved field, refusing a value the page would never write.
+  const label = `${node.name}: ${name}`;
+  if (kind === "duration") return loadDuration(value, label);
+  if (kind === "number") return text(value);
+  if (kind === "mode") {
+    if (!ARRIVAL_MODES.includes(value)) throw new Error(`${label} must be interarrival or rates.`);
+    return value;
+  }
+  if (kind === "choice") {
+    if (value !== "" && !PARAMETERS.station.get(name).choices.includes(value)) throw new Error(`${label} has an unknown choice.`);
+    return value;
+  }
+  if (kind === "toggle") {
+    if (typeof value !== "boolean") throw new Error(`${label} must be true or false.`);
+    return value;
+  }
+  if (kind === "rows") {
+    if (!Array.isArray(value) || !value.length) throw new Error(`${label} needs at least one row.`);
+    return value.map((row) => ({start: text(row && row.start), value: text(row && row.value)}));
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must map customer types to values.`);
+  const result = {};
+  for (const [type, item] of Object.entries(value)) {
+    if (!types.has(type)) throw new Error(`${label} names a customer type the file does not have.`);
+    result[type] = kind === "durations" ? loadDuration(item, label) : text(item);
+  }
+  return result;
+}
+
+function fromJson(data) {
+  if (!data || data.format !== FORMAT) throw new Error("This file is not a FlowSim builder model.");
+  if (data.version !== SCHEMA.format_version && data.version !== 1) {
+    throw new Error(`This file has model format version ${data.version}, and this page reads versions 1 to ${SCHEMA.format_version}.`);
+  }
+  const loaded = emptyState();
+  loaded.time_unit = text(data.time_unit);
+  loaded.run = {duration: text(data.run.duration), seed: text(data.run.seed), drain: data.run.drain === true};
+  const types = new Set();
+  let nextType = 1;
+  for (const item of data.version === 1 ? [] : data.types) {
+    if (!item || typeof item.id !== "string" || !TYPE_ID_PATTERN.test(item.id)) {
+      throw new Error("Every customer type id must be t followed by digits, e.g., t1.");
+    }
+    if (types.has(item.id)) throw new Error(`Two customer types have the id "${item.id}".`);
+    types.add(item.id);
+    loaded.types.push({id: item.id, name: text(item.name)});
+    const number = /^t(\d+)$/.exec(item.id);
+    if (number) nextType = Math.max(nextType, Number(number[1]) + 1);
+  }
+  loaded.next_type = nextType;
+  loaded.nodes = [];
+  const ids = new Set();
+  let next = 1;
+  for (const entry of data.nodes) {
+    if (!["source", "station", "exit"].includes(entry.kind)) throw new Error(`Unknown node kind "${entry.kind}".`);
+    if (typeof entry.id !== "string" || !ID_PATTERN.test(entry.id)) {
+      throw new Error("Every node id must be 1 to 40 letters, digits, underscores, or hyphens.");
+    }
+    if (ids.has(entry.id)) throw new Error(`Two nodes have the id "${entry.id}".`);
+    ids.add(entry.id);
+    const node = {id: String(entry.id), kind: entry.kind, name: text(entry.name), x: Number(entry.x) || 0, y: Number(entry.y) || 0, values: {}};
+    if (node.kind === "exit") {
+      node.name = "Exit";
+    } else {
+      for (const [name, kind] of Object.entries(FIELDS[node.kind])) {
+        // A version 1 file has only the first fields, so the rest start empty.
+        // A version 2 file must hold every field, so a lost switch cannot
+        // silently turn off a saved schedule or failure.
+        if (!(name in entry) && data.version !== 1) throw new Error(`${node.name}: the file has no ${name}.`);
+        node.values[name] = name in entry ? loadField(node, name, kind, entry[name], types) : defaultValue(node.kind, name);
+      }
+    }
+    const number = /^n(\d+)$/.exec(node.id);
+    if (number) next = Math.max(next, Number(number[1]) + 1);
+    loaded.nodes.push(node);
+  }
+  if (loaded.nodes.filter((node) => node.kind === "exit").length !== 1) throw new Error("A model file needs exactly one exit.");
+  for (const edge of data.edges) {
+    if (typeof edge.from !== "string" || typeof edge.to !== "string" || !ids.has(edge.from) || !ids.has(edge.to)) {
+      throw new Error("A route names a node the file does not have.");
+    }
+    const refusal = routeProblem(loaded.nodes, loaded.edges, edge.from, edge.to, types.size > 0);
+    if (refusal) throw new Error(refusal);
+    let edgeTypes = null;
+    if (edge.types !== undefined && edge.types !== null) {
+      if (!Array.isArray(edge.types) || !edge.types.every((type) => types.has(type))) {
+        throw new Error("A route names a customer type the file does not have.");
+      }
+      edgeTypes = [...new Set(edge.types)];
+    }
+    loaded.edges.push({
+      id: `e${loaded.edges.length + 1}`,
+      from: String(edge.from),
+      to: String(edge.to),
+      probability: text(edge.probability),
+      types: edgeTypes,
+    });
+  }
+  loaded.next = next;
+  loaded.next_edge = loaded.edges.length + 1;
+  return loaded;
+}
+
+function download(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], {type}));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+document.getElementById("save-json").addEventListener("click", () => {
+  download("flowsim_model.json", `${JSON.stringify(toJson(), null, 2)}\n`, "application/json");
+});
+
+document.getElementById("load-json").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  const status = document.getElementById("file-status");
+  if (!file) return;
+  try {
+    const loaded = fromJson(JSON.parse(await file.text()));
+    record(null);
+    state = loaded;
+    selection = null;
+    syncSettings();
+    renderAll();
+    status.textContent = `Loaded ${file.name}.`;
+  } catch (error) {
+    status.textContent = `Could not load ${file.name}: ${error.message}`;
+  }
+  event.target.value = "";
+});
+
+document.getElementById("clear-model").addEventListener("click", () => {
+  record(null);
+  state = emptyState();
+  selection = null;
+  syncSettings();
+  renderAll();
+});
+
+document.getElementById("download-code").addEventListener("click", () => {
+  download("flowsim_model.py", generate(), "text/x-python");
+});
+
+document.getElementById("copy-code").addEventListener("click", async () => {
+  const status = document.getElementById("copy-status");
+  const code = document.getElementById("code");
+  try {
+    await navigator.clipboard.writeText(code.textContent);
+    status.textContent = "Copied.";
+  } catch (error) {
+    // A sandboxed frame may block the clipboard, so select the code instead.
+    const range = document.createRange();
+    range.selectNodeContents(code);
+    const chosen = window.getSelection();
+    chosen.removeAllRanges();
+    chosen.addRange(range);
+    const copied = document.execCommand && document.execCommand("copy");
+    status.textContent = copied ? "Copied." : "The code is selected. Copy it with the keyboard.";
+  }
+});
+
+// ---------- Run settings ----------
+
+function syncSettings() {
+  document.getElementById("time-unit").value = state.time_unit;
+  document.getElementById("run-duration").value = state.run.duration;
+  document.getElementById("run-seed").value = state.run.seed;
+  document.getElementById("run-drain").checked = state.run.drain;
+}
+
+document.getElementById("time-unit").addEventListener("input", (event) => {
+  record("time-unit");
+  state.time_unit = event.target.value;
+  update();
+});
+document.getElementById("run-duration").addEventListener("input", (event) => {
+  record("run-duration");
+  state.run.duration = event.target.value;
+  update();
+});
+document.getElementById("run-seed").addEventListener("input", (event) => {
+  record("run-seed");
+  state.run.seed = event.target.value;
+  update();
+});
+document.getElementById("run-drain").addEventListener("change", (event) => {
+  record(null);
+  state.run.drain = event.target.checked;
+  update();
+});
+document.getElementById("add-source").addEventListener("click", () => addNode("source"));
+document.getElementById("add-station").addEventListener("click", () => addNode("station"));
+document.getElementById("delete-selected").addEventListener("click", deleteSelection);
+document.getElementById("undo").addEventListener("click", undo);
+document.getElementById("redo").addEventListener("click", redo);
+document.getElementById("arrange").addEventListener("click", arrange);
+
+// ---------- Rendering ----------
+
+function update() {
+  document.getElementById("code").textContent = generate();
+  document.getElementById("copy-status").textContent = "";
+  renderProblems();
+  const exitSelected = selection && selection.type === "node" && nodeById(selection.id).kind === "exit";
+  document.getElementById("delete-selected").disabled = !selection || exitSelected;
+  updateHistoryButtons();
+}
+
+function renderAll() {
+  renderTypes();
+  renderCanvas();
+  renderPanel();
+  update();
+}
+
+function describeExcluded() {
+  const parts = [];
+  for (const kind of ["source", "station"]) {
+    const left = SCHEMA[kind]
+      .filter((parameter) => !SUPPORTED[kind].includes(parameter.name))
+      .map((parameter) => parameter.name + (parameter.choices ? ` (${parameter.choices.map((choice) => `"${choice}"`).join(" or ")})` : ""));
+    if (left.length) parts.push(`model.${kind} arguments not edited here: ${left.join(", ")}.`);
+  }
+  document.getElementById("excluded-arguments").textContent = parts.join(" ");
+}
+
+describeExcluded();
+syncSettings();
+renderAll();
+window.flowsimBuilder = {state: () => toJson(), code: generate};
+</script>
+</body>
+</html>

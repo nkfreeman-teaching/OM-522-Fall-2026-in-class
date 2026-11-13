@@ -1,0 +1,159 @@
+<template id="supply-run-template">
+  <p id="run-details" class="muted"></p>
+  <div class="cards" id="cards"></div>
+  <section>
+    <h2>Stock-point performance</h2>
+    <p class="muted">Measures use review periods after warm-up. Stock and backorders are end-of-period values. The fill rate is the share of each period's new demand filled from stock in that period. The bullwhip ratio is the variance of orders placed divided by the variance of orders received.</p>
+    <div class="table-wrap"><table id="stock-points"></table></div>
+  </section>
+  <section>
+    <h2>Orders up the chain</h2>
+    <p class="muted">Each line is the quantity a stage ordered in each period, beside consumer demand. Wider swings upstream are the bullwhip effect. The dashed line marks the end of warm-up, and the vertical scale fits the measured weeks, so double-click the chart to include startup orders.</p>
+    <div class="chart" id="orders"></div>
+  </section>
+  <section>
+    <div class="toolbar">
+      <label for="stock-choice">Explore a stock point</label>
+      <select id="stock-choice"></select>
+    </div>
+    <h2>Stock, backorders, and orders</h2>
+    <p class="muted">Values are recorded after each review's order. Orders received are consumer demand at the first stage and the downstream stage's orders elsewhere.</p>
+    <div class="chart" id="inventory"></div>
+  </section>
+  <section id="production-section" hidden>
+    <h2>Production stations</h2>
+    <p class="muted" id="production-details"></p>
+    <div class="table-wrap"><table id="stations"></table></div>
+    <div class="toolbar">
+      <label for="station-choice">Explore a station</label>
+      <select id="station-choice"></select>
+    </div>
+    <h3>Jobs waiting and servers occupied</h3>
+    <div class="chart" id="queues"></div>
+    <h3>Occupied server capacity after warm-up</h3>
+    <div class="chart" id="utilization"></div>
+  </section>
+  <section>
+    <h2>Raw records</h2>
+    <p class="muted">The inventory records hold one row per stock point and period. A shipment with no arrival time was still in transit at the end.</p>
+    <div class="toolbar">
+      <button id="download-inventory">Download inventory CSV</button>
+      <button id="download-shipments">Download shipments CSV</button>
+      <button id="download-jobs" hidden>Download jobs CSV</button>
+    </div>
+  </section>
+</template>
+<script>
+// Mount a fresh copy of the run view in root and draw one run's records.
+function showSupplyRun(root, result, plotTemplate) {
+    root.querySelectorAll(".js-plotly-plot").forEach(chart => Plotly.purge(chart));
+    root.replaceChildren(document.getElementById("supply-run-template").content.cloneNode(true));
+    // The rows this view reads, rebuilt once when it opens by tableRows from
+    // service_run.html. Downloads read the columns.
+    const stockPoints = tableRows(result.stock_points);
+    const stations = tableRows(result.stations);
+    const config = {responsive: true, displaylogo: false};
+    const unit = result.time_unit;
+    const format = value => value === null || value === undefined ? "Not observed" :
+      typeof value === "number" ? value.toLocaleString(undefined, {maximumFractionDigits: 3}) : String(value);
+    const percent = value => value === null || value === undefined ? "Not observed" : (100 * value).toFixed(1) + "%";
+    document.getElementById("run-details").textContent =
+      "Chain: " + result.chain.join(" → ") + ". Review period: " + format(result.period) + " " + unit +
+      ". Reviews end at " + format(result.duration) + " " + unit + ". Measurement begins at " + format(result.warmup) + " " + unit +
+      ". Seed: " + result.seed + ".";
+    const first = stockPoints[0];
+    const last = stockPoints[stockPoints.length - 1];
+    const cards = [
+      ["Periods measured", format(first.periods)],
+      [first.stock_point + " fill rate", percent(first.fill_rate)],
+      [first.stock_point + " bullwhip ratio", format(first.bullwhip_ratio)],
+      [last.stock_point + " bullwhip ratio", format(last.bullwhip_ratio)]
+    ];
+    cards.forEach(([label, value]) => {
+      const card = document.createElement("div"); card.className = "card";
+      const caption = document.createElement("span"); caption.textContent = label;
+      const number = document.createElement("span"); number.className = "value"; number.textContent = value;
+      card.append(caption, number); document.getElementById("cards").append(card);
+    });
+    function table(element, rows, columns) {
+      element.replaceChildren();
+      const head = document.createElement("thead"); const header = document.createElement("tr");
+      columns.forEach(([key, label]) => { const th = document.createElement("th"); th.textContent = label; header.append(th); });
+      head.append(header); element.append(head);
+      const body = document.createElement("tbody");
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        columns.forEach(([key]) => {
+          const td = document.createElement("td");
+          td.textContent = result.percent_columns.includes(key) ? percent(row[key]) : format(row[key]);
+          tr.append(td);
+        });
+        body.append(tr);
+      });
+      element.append(body);
+    }
+    table(document.getElementById("stock-points"), stockPoints, [
+      ["stock_point", "Stock point"], ["mean_demand", "Mean orders received"], ["mean_order", "Mean orders placed"],
+      ["bullwhip_ratio", "Bullwhip ratio"], ["fill_rate", "Fill rate"], ["mean_on_hand", "Mean on hand"],
+      ["mean_backorders", "Mean backorders"], ["lost_units", "Lost sales"]
+    ]);
+    // Production stations appear only when the top stage produces. Each job's
+    // flow time runs from its release at a review to its finish.
+    const production = stations.length > 0;
+    const stationChoice = document.getElementById("station-choice");
+    if (production) {
+      const top = result.chain[result.chain.length - 1];
+      document.getElementById("production-section").hidden = false;
+      document.getElementById("download-jobs").hidden = false;
+      document.getElementById("production-details").textContent =
+        top + " splits each order into jobs that pass through these stations. Jobs released after warm-up took " +
+        format(result.summary.mean_flow_time) + " " + unit + " on average from release to finish (" +
+        result.summary.cohort_completions + " finished, " + result.summary.cohort_remaining + " unfinished at the end). " +
+        "A finished job enters stock at the next review. Station measures use the same window as the stock points.";
+      table(document.getElementById("stations"), stations, [
+        ["station", "Station"], ["capacity", "Servers"], ["utilization", "Utilization"],
+        ["mean_queue", "Mean jobs waiting"], ["mean_wait", "Mean wait (" + unit + ")"]
+      ]);
+      stations.forEach(row => {
+        const option = document.createElement("option"); option.value = row.station; option.textContent = row.station; stationChoice.append(option);
+      });
+    }
+    const stockChoice = document.getElementById("stock-choice");
+    stockPoints.forEach(row => {
+      const option = document.createElement("option"); option.value = row.stock_point; option.textContent = row.stock_point; stockChoice.append(option);
+    });
+    const plotsReady = Promise.all(Object.entries(result.figures).map(([id, figure]) => {
+      // The utilization chart keeps the height that fits its station count.
+      // Python left out the template that every figure shares.
+      figure.layout.template = figure.layout.template || plotTemplate;
+      delete figure.layout.width; figure.layout.autosize = true;
+      if (id !== "utilization") figure.layout.height = 420;
+      delete figure.layout.updatemenus;
+      return Plotly.newPlot(id, figure.data, figure.layout, config);
+    }));
+    stockChoice.addEventListener("change", async () => {
+      await plotsReady;
+      // Each stock-point trace carries its name as meta, as in plots.station_menu.
+      Plotly.restyle("inventory", {visible: result.figures.inventory.data.map(trace => trace.meta === stockChoice.value)});
+    });
+    stationChoice.addEventListener("change", async () => {
+      await plotsReady;
+      Plotly.restyle("queues", {visible: result.figures.queues.data.map(trace => trace.meta === stationChoice.value)});
+    });
+    // Each CSV line reads one row across the table's columns, in the export column order.
+    function download(name, columns, keys) {
+      const quote = value => value === null || value === undefined ? "" : '"' + String(value).replaceAll('"', '""') + '"';
+      const count = keys.length === 0 ? 0 : columns[keys[0]].length;
+      const lines = [keys.map(quote).join(",")];
+      for (let index = 0; index < count; index += 1) lines.push(keys.map(key => quote(columns[key][index])).join(","));
+      const csv = lines.join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+      const link = document.createElement("a"); link.href = url; link.download = name; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    document.getElementById("download-inventory").addEventListener("click", () => download("inventory.csv", result.inventory, result.columns.inventory));
+    document.getElementById("download-shipments").addEventListener("click", () => download("shipments.csv", result.shipments, result.columns.shipments));
+    document.getElementById("download-jobs").addEventListener("click", () => download("jobs.csv", result.jobs, result.columns.jobs));
+    return plotsReady;
+}
+</script>

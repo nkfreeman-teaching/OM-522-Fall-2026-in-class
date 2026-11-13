@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>__HEADING__</title>
+  <style>
+__STYLE__
+  </style>
+  <script>__PLOTLY_JS__</script>
+</head>
+<body>
+<main>
+  <h1>__HEADING__</h1>
+  <div id="run-root"></div>
+</main>
+__SERVICE_RUN__
+__SUPPLY_RUN__
+<script id="plot-template" type="application/json">__TEMPLATE_JSON__</script>
+<script id="result-data" type="application/json">__RESULT_JSON__</script>
+<script>
+  // The run view fragments define showServiceRun and showSupplyRun.
+  const result = JSON.parse(document.getElementById("result-data").textContent);
+  const plotTemplate = JSON.parse(document.getElementById("plot-template").textContent);
+  const showRun = result.kind === "supply" ? showSupplyRun : showServiceRun;
+  window.flowsimReady = showRun(document.getElementById("run-root"), result, plotTemplate);
+</script>
+</body>
+</html>

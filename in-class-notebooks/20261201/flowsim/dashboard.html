@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlowSim: __HEADING__</title>
+  <style>
+__STYLE__
+  </style>
+  <script>__PLOTLY_JS__</script>
+</head>
+<body>
+<main>
+  <h1>__HEADING__</h1>
+  <p id="settings-details" class="muted"></p>
+  <section id="overview">
+    <div class="toolbar">
+      <label for="metric-choice">Metric</label>
+      <select id="metric-choice"></select>
+      <label for="location-choice" id="location-label"></label>
+      <select id="location-choice"></select>
+      <label for="baseline-choice" id="baseline-label" hidden>Baseline</label>
+      <select id="baseline-choice" hidden></select>
+    </div>
+    <p id="metric-meaning" class="muted"></p>
+    <p id="window-details" class="muted"></p>
+    <h2 id="interval-title"></h2>
+    <p class="muted" id="interval-reading"></p>
+    <div class="chart" id="scenario-means"></div>
+    <div class="table-wrap"><table id="interval-table"></table></div>
+  </section>
+  <section id="difference-section" hidden>
+    <h2 id="difference-title"></h2>
+    <p class="muted">Each difference is the scenario value minus its baseline value within the same replication. Negative values indicate a smaller metric. The dashed line marks zero.</p>
+    <p class="muted" id="difference-missing" hidden></p>
+    <div class="chart" id="scenario-differences"></div>
+    <div class="table-wrap"><table id="difference-table"></table></div>
+  </section>
+  <section id="replication-section">
+    <h2>Each replication</h2>
+    <p class="muted" id="replication-reading"></p>
+    <div class="chart" id="replication-values"></div>
+    <div class="toolbar" id="run-toolbar">
+      <label for="run-choice">Run</label>
+      <select id="run-choice"></select>
+      <button id="open-run">Open run</button>
+    </div>
+  </section>
+  <div id="run-panel" hidden>
+    <div class="run-header">
+      <h2 id="run-heading"></h2>
+      <button id="close-run">Close run</button>
+    </div>
+    <div id="run-root"></div>
+  </div>
+  <p class="muted">The saved page works offline. Intervals describe the selected finite-day statistic. They do not establish steady-state performance. Wait and flow averages exclude rejected arrivals, which can be compared separately.</p>
+</main>
+__SERVICE_RUN__
+__SUPPLY_RUN__
+<script id="plot-template" type="application/json">__TEMPLATE_JSON__</script>
+<script id="dashboard-data" type="application/json">__DASHBOARD_JSON__</script>
+__RUN_DATA__
+<script>
+  const dashboard = JSON.parse(document.getElementById("dashboard-data").textContent);
+  const plotTemplate = JSON.parse(document.getElementById("plot-template").textContent);
+  const config = {responsive: true, displaylogo: false};
+  const metricChoice = document.getElementById("metric-choice");
+  const locationChoice = document.getElementById("location-choice");
+  const baselineChoice = document.getElementById("baseline-choice");
+  const runChoice = document.getElementById("run-choice");
+  const comparing = dashboard.scenarios.length > 1 || dashboard.scenarios[0] !== null;
+  const metrics = new Map(dashboard.metrics.map(entry => [entry.name, entry]));
+  const kindNames = {station: "Station", stock_point: "Stock point"};
+  document.getElementById("settings-details").textContent =
+    (comparing ? dashboard.scenarios.length + " scenarios, each with " : "") + dashboard.replications +
+    " replications. Intervals use " + dashboard.confidence_text + " Student t uncertainty across run estimates.";
+  // The metric menu groups the catalog's metrics by scope.
+  dashboard.groups.forEach(([scope, heading]) => {
+    const entries = dashboard.metrics.filter(entry => entry.scope === scope);
+    if (entries.length === 0) return;
+    const group = document.createElement("optgroup"); group.label = heading;
+    entries.forEach(entry => {
+      const option = document.createElement("option"); option.value = entry.name; option.textContent = entry.label + " (" + entry.name + ")";
+      group.append(option);
+    });
+    metricChoice.append(group);
+  });
+  dashboard.scenarios.forEach(name => {
+    if (name === null) return;
+    const option = document.createElement("option"); option.value = name; option.textContent = name; baselineChoice.append(option);
+  });
+  baselineChoice.hidden = !comparing; document.getElementById("baseline-label").hidden = !comparing;
+  metricChoice.value = dashboard.initial.metric;
+  if (comparing) baselineChoice.value = dashboard.initial.baseline;
+  function fillLocations(entry, chosen) {
+    locationChoice.replaceChildren();
+    const located = entry.locations[0] !== null;
+    locationChoice.hidden = !located;
+    const caption = document.getElementById("location-label");
+    caption.hidden = !located; caption.textContent = located ? kindNames[entry.scope] : "";
+    entry.locations.forEach((place, index) => {
+      const option = document.createElement("option"); option.value = String(index); option.textContent = place === null ? "System" : place;
+      locationChoice.append(option);
+    });
+    const index = entry.locations.indexOf(chosen);
+    locationChoice.value = String(index < 0 ? 0 : index);
+  }
+  fillLocations(metrics.get(dashboard.initial.metric), dashboard.initial.location);
+  const cell = (entry, row, key) => {
+    if (row.mean === null) return "Not observed";
+    if (row[key] === null) return "Needs two runs";
+    return entry.fraction ? (100 * row[key]).toFixed(1) + "%" : row[key].toFixed(3);
+  };
+  function intervalTable(element, entry, rows, place) {
+    element.replaceChildren();
+    const keys = (comparing ? [["scenario", "Scenario"]] : []).concat(place === null ? [] : [[entry.location_column, kindNames[entry.scope]]]);
+    const head = document.createElement("thead"); const header = document.createElement("tr");
+    keys.map(([, title]) => title).concat(["Mean", "Lower limit", "Upper limit"].map(name => name + " (" + entry.units + ")"), ["Observed runs"])
+      .forEach(title => { const th = document.createElement("th"); th.textContent = title; header.append(th); });
+    head.append(header); element.append(head);
+    const body = document.createElement("tbody");
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      keys.map(([key]) => row[key]).concat(["mean", "lower", "upper"].map(key => cell(entry, row, key)), [String(row.observed_runs)])
+        .forEach(value => { const td = document.createElement("td"); td.textContent = value; tr.append(td); });
+      body.append(tr);
+    });
+    element.append(body);
+  }
+  // Plotly centers an axis title on the plot area, which long scenario names push to
+  // the right, so on narrow pages the title moves to a line below the chart that wraps.
+  const narrowWidth = 500;
+  const axisTitles = {};
+  function fitAxisNote(id) {
+    const chart = document.getElementById(id);
+    if (!chart.layout || !(id in axisTitles)) return;
+    let note = chart.parentElement.querySelector(".axis-note[data-chart='" + id + "']");
+    if (note === null) {
+      note = document.createElement("p"); note.className = "axis-note"; note.dataset.chart = id;
+      chart.after(note);
+    }
+    const narrow = chart.clientWidth < narrowWidth;
+    // flowsim.plots.label escaped the title, so it is shown as text.
+    note.innerHTML = axisTitles[id].title;
+    note.hidden = !narrow;
+    const wanted = narrow ? "" : axisTitles[id].title;
+    if (chart.layout.xaxis.title.text !== wanted) {
+      return Plotly.relayout(chart, {"xaxis.title.text": wanted, "margin.b": narrow ? 40 : axisTitles[id].bottom});
+    }
+  }
+  window.addEventListener("resize", () => ["scenario-means", "scenario-differences"].forEach(fitAxisNote));
+  function draw(id, figure) {
+    // Each figure is drawn from a fresh copy, so Plotly's changes never reach the data.
+    const copy = JSON.parse(JSON.stringify(figure));
+    copy.layout.template = copy.layout.template || plotTemplate;
+    delete copy.layout.width; copy.layout.autosize = true;
+    // Only the interval charts, whose rows carry scenario names, move their axis title.
+    if (id !== "replication-values") axisTitles[id] = {title: copy.layout.xaxis.title.text, bottom: copy.layout.margin.b};
+    return Plotly.react(id, copy.data, copy.layout, config).then(() => fitAxisNote(id));
+  }
+  function show() {
+    const entry = metrics.get(metricChoice.value);
+    const view = entry.views[Number(locationChoice.value)];
+    const place = entry.locations[Number(locationChoice.value)];
+    document.getElementById("metric-meaning").textContent = entry.meaning;
+    document.getElementById("window-details").textContent = entry.window;
+    document.getElementById("interval-title").textContent = view.title;
+    document.getElementById("interval-reading").textContent = "Points show means across independent replications. Intervals show " +
+      dashboard.confidence_text + " Student t uncertainty across run estimates.";
+    intervalTable(document.getElementById("interval-table"), entry, view.intervals, place);
+    const drawing = [draw("scenario-means", view.means)];
+    const section = document.getElementById("difference-section");
+    section.hidden = !comparing;
+    if (comparing) {
+      const baseline = baselineChoice.value;
+      document.getElementById("difference-title").textContent = "Difference from " + baseline;
+      const changes = view.changes[baseline];
+      const missing = document.getElementById("difference-missing");
+      missing.hidden = changes !== null;
+      missing.textContent = changes === null ? "No other scenario shares this location with " + baseline + ", so there are no paired differences." : "";
+      document.getElementById("scenario-differences").hidden = changes === null;
+      if (changes !== null) {
+        intervalTable(document.getElementById("difference-table"), entry, changes.intervals, place);
+        drawing.push(draw("scenario-differences", changes.figure));
+      } else {
+        document.getElementById("difference-table").replaceChildren();
+      }
+    }
+    drawing.push(draw("replication-values", view.runs));
+    return Promise.all(drawing);
+  }
+  // Each run's records sit in their own script element, parsed when the run opens.
+  const runs = [];
+  dashboard.runs.forEach((scenarioRuns, scenario) => scenarioRuns.forEach((run, replication) => {
+    runs.push(Object.assign({scenario, replication}, run));
+  }));
+  runs.forEach((run, index) => {
+    const option = document.createElement("option"); option.value = String(index); option.textContent = run.label; runChoice.append(option);
+  });
+  document.getElementById("replication-reading").textContent = dashboard.records ?
+    "Each point is one run's value. Select a point, or choose a run below, to open that run's queues, waits, utilization, server states, and customer timelines on this page." :
+    "Each point is one run's value. Each run's records were dropped by keep_records=False, so this page shows the overview only. Run the experiment with keep_records=True to open single runs from it.";
+  document.getElementById("run-toolbar").hidden = !dashboard.records;
+  const runPanel = document.getElementById("run-panel");
+  const runRoot = document.getElementById("run-root");
+  function openRun(scenario, replication) {
+    if (!dashboard.records) return Promise.resolve();
+    const index = runs.findIndex(run => run.scenario === scenario && run.replication === replication);
+    const run = runs[index];
+    runChoice.value = String(index);
+    const result = JSON.parse(document.getElementById("run-" + scenario + "-" + replication).textContent);
+    runPanel.hidden = false;
+    document.getElementById("run-heading").textContent = run.label;
+    const showRun = result.kind === "supply" ? showSupplyRun : showServiceRun;
+    window.flowsimRunReady = showRun(runRoot, result, plotTemplate);
+    runPanel.scrollIntoView({behavior: "smooth", block: "start"});
+    return window.flowsimRunReady;
+  }
+  document.getElementById("open-run").addEventListener("click", () => {
+    const run = runs[Number(runChoice.value)]; openRun(run.scenario, run.replication);
+  });
+  document.getElementById("close-run").addEventListener("click", () => {
+    runRoot.querySelectorAll(".js-plotly-plot").forEach(chart => Plotly.purge(chart));
+    runRoot.replaceChildren(); runPanel.hidden = true;
+  });
+  metricChoice.addEventListener("change", () => {
+    const entry = metrics.get(metricChoice.value);
+    const before = locationChoice.selectedOptions.length ? locationChoice.selectedOptions[0].textContent : null;
+    fillLocations(entry, before);
+    show();
+  });
+  locationChoice.addEventListener("change", show);
+  baselineChoice.addEventListener("change", show);
+  window.flowsimReady = show().then(() => {
+    // A point's customdata holds its scenario and replication, counted from 0.
+    document.getElementById("replication-values").on("plotly_click", event => {
+      const [scenario, replication] = event.points[0].customdata;
+      openRun(scenario, replication);
+    });
+  });
+</script>
+</body>
+</html>

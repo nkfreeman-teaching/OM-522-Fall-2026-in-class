@@ -1,0 +1,334 @@
+<template id="service-run-template">
+  <p id="run-details" class="muted"></p>
+  <div class="cards" id="cards"></div>
+  <p id="notice"></p>
+  <section>
+    <h2>Station performance</h2>
+    <p id="metric-definition" class="muted"></p>
+    <div class="table-wrap"><table id="stations"></table></div>
+  </section>
+  <section>
+    <div class="toolbar">
+      <label for="station-choice">Explore a station</label>
+      <select id="station-choice"></select>
+    </div>
+    <div class="grid">
+      <div>
+        <h2>Queue and service history</h2>
+        <p class="muted">Drag to zoom, hover for counts, or adjust the time range below the chart. When service continues after closing, the dashed line marks closing. The boxes below the chart, or a click on a legend entry, show or hide a line for every station.</p>
+        <div class="chart" id="queues"></div>
+        <div class="series" id="queues-series"></div>
+      </div>
+      <div>
+        <h2>Waiting-time distribution</h2>
+        <p class="muted">This chart includes observed waits for station arrivals after warm-up. Customers still waiting have no final wait.</p>
+        <div class="chart" id="waits"></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>Occupied server capacity</h2>
+    <p class="muted">This is occupied server time divided by installed capacity and observation time. Occupied servers can be processing, paused, or blocked.</p>
+    <div class="chart" id="utilization"></div>
+  </section>
+  <section>
+    <h2>Customer timeline</h2>
+    <div class="toolbar">
+      <label for="customer-choice">Customer ID</label>
+      <input id="customer-choice" type="number" min="1" step="1" value="1">
+      <button id="show-customer">Show customer</button>
+    </div>
+    <p id="customer-details" class="muted"></p>
+    <div class="chart" id="timeline"></div>
+  </section>
+  <section>
+    <h2>Raw customer records</h2>
+    <p class="muted">Select a row to inspect its timeline. The downloads contain every record, including unfinished customers.</p>
+    <div class="toolbar">
+      <label for="status-choice">Status</label>
+      <select id="status-choice">
+        <option value="all">All customers</option>
+        <option value="completed">Completed</option>
+        <option value="waiting">Waiting</option>
+        <option value="in_service">In service</option>
+        <option value="paused">Paused</option>
+        <option value="blocked">Blocked</option>
+        <option value="outside">Waiting outside</option>
+        <option value="rejected">Rejected</option>
+        <option value="abandoned">Abandoned</option>
+      </select>
+      <button id="download-customers">Download customers CSV</button>
+      <button id="download-visits">Download station visits CSV</button>
+    </div>
+    <div class="table-wrap"><table id="customers"></table></div>
+    <div class="toolbar">
+      <button id="previous">Previous</button>
+      <span id="page-details"></span>
+      <button id="next">Next</button>
+    </div>
+  </section>
+  <section id="resources-section" hidden>
+    <h2>Processing, availability, and interruptions</h2>
+    <div class="toolbar">
+      <label class="switch"><input type="checkbox" id="resources-stacked"> Stack the server states</label>
+    </div>
+    <p class="muted" id="resources-reading"></p>
+    <div class="chart" id="resources"></div>
+    <div class="series" id="resources-series"></div>
+    <div class="table-wrap"><table id="resource-stats"></table></div>
+    <h2>Failure and repair records</h2>
+    <p class="muted">Repairs are independent for each server. Missing repair ends indicate repairs still in progress when customer service ended.</p>
+    <div class="table-wrap"><table id="failure-records"></table></div>
+  </section>
+</template>
+<script>
+// Python embeds each record table column by column, which keeps pages small.
+// This rebuilds a table's rows. Both run views use it, since every page that
+// holds one run view holds both.
+function tableRows(columns) {
+  const keys = Object.keys(columns);
+  const count = keys.length === 0 ? 0 : columns[keys[0]].length;
+  return Array.from({length: count}, (_, index) => Object.fromEntries(keys.map(key => [key, columns[key][index]])));
+}
+// Mount a fresh copy of the run view in root and draw one run's records.
+function showServiceRun(root, result, plotTemplate) {
+    root.querySelectorAll(".js-plotly-plot").forEach(chart => Plotly.purge(chart));
+    root.replaceChildren(document.getElementById("service-run-template").content.cloneNode(true));
+    // The rows this view reads, rebuilt once when it opens. Downloads read the columns.
+    const customers = tableRows(result.customers);
+    const stations = tableRows(result.stations);
+    const failures = tableRows(result.failures);
+    const byId = new Map(customers.map(row => [row.customer_id, row]));
+    const spansById = new Map();
+    tableRows(result.timeline).forEach(row => {
+      if (!spansById.has(row.customer_id)) spansById.set(row.customer_id, []);
+      spansById.get(row.customer_id).push(row);
+    });
+    const config = {responsive: true, displaylogo: false};
+    const unit = result.time_unit;
+    const format = value => value === null || value === undefined ? "Not observed" :
+      typeof value === "number" ? value.toLocaleString(undefined, {maximumFractionDigits: 2}) : String(value);
+    const escapeText = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    document.getElementById("run-details").textContent =
+      "Closing time: " + format(result.duration) + " " + unit +
+      ". Service ends at " + format(result.end_time) + " " + unit +
+      ". Measurement begins at " + format(result.warmup) + " " + unit + ". Seed: " + result.seed + ".";
+    const summary = result.summary;
+    const cards = [
+      ["Arrivals in the full run", summary.arrivals],
+      ["Completed before closing", summary.completed_at_close],
+      ["Unfinished at closing", summary.remaining_at_close],
+      ["Mean completed flow time (" + unit + ")", summary.mean_flow_time]
+    ];
+    cards.forEach(([label, value]) => {
+      const card = document.createElement("div"); card.className = "card";
+      const caption = document.createElement("span"); caption.textContent = label;
+      const number = document.createElement("span"); number.className = "value"; number.textContent = format(value);
+      card.append(caption, number); document.getElementById("cards").append(card);
+    });
+    document.getElementById("notice").textContent =
+      "Flow-time averages use " + summary.cohort_completions + " customers who arrived after warm-up and completed service. " +
+      summary.cohort_remaining + " customers in that arrival cohort remain unfinished. " +
+      (result.drain ? "Arrivals stopped at closing, and the run continued until every customer who was not rejected had completed service or abandoned. Overtime: " + format(summary.overtime) + " " + unit + ". " :
+        "Service stopped at closing. Unfinished final flow times are unknown. ") +
+      "Operating-hour counts exclude events exactly at closing. Rejected arrivals: " + summary.rejected +
+      ". Abandoned customers: " + summary.abandoned +
+      ". Rejected and abandoned customers are excluded from wait and flow averages. Outside at closing: " + summary.outside_at_close + ".";
+    document.getElementById("metric-definition").textContent =
+      "Queue averages and utilization use operating hours after warm-up. Arrival, start, and completion counts use event times in that window. Closing counts are taken before events exactly at closing. Wait averages include observed station arrivals after warm-up, including downstream arrivals after closing when service continues.";
+    function table(element, rows, columns, onRow) {
+      element.replaceChildren();
+      const head = document.createElement("thead"); const header = document.createElement("tr");
+      columns.forEach(([key, label]) => { const th = document.createElement("th"); th.textContent = label; header.append(th); });
+      head.append(header); element.append(head);
+      const body = document.createElement("tbody");
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        columns.forEach(([key, label]) => {
+          const td = document.createElement("td");
+          const percentage = result.percent_columns.includes(key);
+          td.textContent = percentage && row[key] !== null ? (100 * row[key]).toFixed(1) + "%" : format(row[key]);
+          tr.append(td);
+        });
+        if (onRow) tr.addEventListener("click", () => onRow(row));
+        body.append(tr);
+      });
+      element.append(body);
+    }
+    table(document.getElementById("stations"), stations, [
+      ["station", "Station"], ["capacity", "Servers"], ["arrivals", "Arrivals"],
+      ["service_completions", "Completions"], ["mean_wait", "Mean wait (" + unit + ")"],
+      ["p95_wait", "95th percentile wait (" + unit + ")"], ["mean_queue", "Mean queue (customers)"],
+      ["utilization", "Utilization"], ["waiting_at_close", "Waiting at close"], ["occupied_at_close", "Occupied servers at close"]
+    ]);
+    if (result.figures.resources) {
+      document.getElementById("resources-section").hidden = false;
+      table(document.getElementById("resource-stats"), stations, [
+        ["station", "Station"], ["processing_utilization", "Processing / installed capacity"],
+        ["blocking_fraction", "Blocked / installed capacity"], ["downtime_fraction", "Down / installed capacity"],
+        ["mean_scheduled_servers", "Mean scheduled servers"], ["mean_available_servers", "Mean available servers"],
+        ["staffed_utilization", "Processing / available capacity"], ["mean_outside_queue", "Mean outside customers"]
+      ]);
+      table(document.getElementById("failure-records"), failures, [
+        ["station", "Station"], ["server_id", "Server"], ["failure_time", "Failure (" + unit + ")"],
+        ["time_to_failure", "Failure clock duration (" + unit + ")"],
+        ["repair_time", "Repair duration (" + unit + ")"], ["repair_end", "Repair end (" + unit + ")"]
+      ]);
+    }
+    const stationChoice = document.getElementById("station-choice");
+    stations.forEach(row => {
+      const option = document.createElement("option"); option.value = row.station; option.textContent = row.station; stationChoice.append(option);
+    });
+    function fitLayout(id, figure) {
+      // Python left out the template that every figure shares.
+      figure.layout.template = figure.layout.template || plotTemplate;
+      delete figure.layout.width; figure.layout.autosize = true;
+      if (id !== "utilization") figure.layout.height = 390;
+      delete figure.layout.updatemenus;
+    }
+    if (result.stacked_resources) fitLayout("resources", result.stacked_resources);
+    const plotsReady = Promise.all(Object.entries(result.figures).map(([id, figure]) => {
+      fitLayout(id, figure);
+      return Plotly.newPlot(id, figure.data, figure.layout, config);
+    }));
+    // Each chart's line choices by trace name, which persist across station
+    // changes and the stacked switch. A cleared line stays in the legend, dimmed.
+    const shown = {queues: {}, resources: {}};
+    const drawn = {queues: result.figures.queues, resources: result.figures.resources};
+    const stackedChoice = document.getElementById("resources-stacked");
+    const readings = {
+      lines: "Occupied capacity includes processing, paused work, and blocked jobs. The chart separates those states. Down servers can also hold paused jobs, so the lines overlap. Scheduled and available counts describe staffing and repairs.",
+      stacked: "Each server counts in one layer: processing, blocked, or paused while it holds a job, down while it is under repair without a job, and idle while it is on duty, up, and free. The layers reach the dashed scheduled line, except while a server that went off duty still holds a job or is under repair."
+    };
+    // Each station trace carries its station name as meta, as in plots.station_menu.
+    function applyChoices(id) {
+      const station = stationChoice.value;
+      return Plotly.restyle(id, {visible: drawn[id].data.map(trace =>
+        trace.meta !== station ? false : shown[id][trace.name] === false ? "legendonly" : true)});
+    }
+    function seriesBoxes(id) {
+      const box = document.getElementById(id + "-series");
+      box.replaceChildren();
+      [...new Set(drawn[id].data.map(trace => trace.name))].forEach(name => {
+        const trace = drawn[id].data.find(item => item.name === name);
+        const choice = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "checkbox"; input.checked = shown[id][name] !== false; input.dataset.series = name;
+        input.addEventListener("change", () => { shown[id][name] = input.checked; applyChoices(id); });
+        const swatch = document.createElement("span"); swatch.className = "swatch";
+        swatch.style.borderTopColor = trace.line.color;
+        swatch.style.borderTopStyle = trace.line.dash === "dash" ? "dashed" : "solid";
+        if (trace.fillcolor) swatch.style.background = trace.fillcolor;
+        const text = document.createElement("span"); text.textContent = name;
+        choice.append(input, swatch, text); box.append(choice);
+      });
+    }
+    function legendChoices(id) {
+      const chart = document.getElementById(id);
+      // A legend click toggles the same choice as the box, for every station.
+      chart.on("plotly_legendclick", event => {
+        const name = event.data[event.curveNumber].name;
+        shown[id][name] = shown[id][name] === false;
+        seriesBoxes(id); applyChoices(id);
+        return false;
+      });
+      chart.on("plotly_legenddoubleclick", () => false);
+    }
+    const choicesReady = plotsReady.then(() => {
+      Object.keys(drawn).filter(id => drawn[id]).forEach(id => { seriesBoxes(id); legendChoices(id); });
+      if (drawn.resources) document.getElementById("resources-reading").textContent = readings.lines;
+    });
+    stackedChoice.addEventListener("change", async () => {
+      await choicesReady;
+      const stacked = stackedChoice.checked;
+      drawn.resources = stacked ? result.stacked_resources : result.figures.resources;
+      document.getElementById("resources-reading").textContent = stacked ? readings.stacked : readings.lines;
+      await Plotly.react("resources", drawn.resources.data, drawn.resources.layout, config);
+      seriesBoxes("resources");
+      await applyChoices("resources");
+    });
+    stationChoice.addEventListener("change", async () => {
+      await choicesReady;
+      const station = stationChoice.value;
+      if (result.figures.waits) Plotly.restyle("waits", {visible: result.figures.waits.data.map(trace => trace.meta === station)});
+      Object.keys(drawn).filter(id => drawn[id]).forEach(applyChoices);
+    });
+    function showCustomer() {
+      const id = Number(document.getElementById("customer-choice").value);
+      const customer = byId.get(id); const info = document.getElementById("customer-details");
+      if (!customer) {
+        info.textContent = "No customer with that ID exists in this run.";
+        Plotly.react("timeline", [], {height: 350, template: plotTemplate}, config);
+        return;
+      }
+      info.textContent = "Customer " + id + (customer.customer_type === null ? "" : " (type " + customer.customer_type + ")") +
+        " arrived at " + format(customer.arrival_time) + " " + unit +
+        ". Status: " + customer.status.replaceAll("_", " ") + ". " +
+        (customer.status === "rejected" ? "The customer did not enter the service network." :
+         customer.status === "abandoned" ? "The customer left without service at " + format(customer.abandon_time) + " " + unit + "." :
+         customer.exit_time === null ? "Unfinished activity is shown through the service limit." :
+          "Flow time: " + format(customer.flow_time) + " " + unit + ".");
+      // plots.timeline_spans computes these bars, so this only draws them.
+      const spans = spansById.get(id) || [];
+      const traces = Object.entries(result.timeline_colors).map(([name, color]) => {
+        const selected = spans.filter(row => row.activity === name);
+        return {
+          type: "bar", orientation: "h", name,
+          base: selected.map(row => row.start),
+          x: selected.map(row => row.end - row.start),
+          y: selected.map(row => escapeText(row.station)),
+          marker: {color, line: {color: "black", width: 1}},
+          hovertemplate: "%{y}<br>Duration: %{x:.2f}<extra>%{fullData.name}</extra>"
+        };
+      });
+      Plotly.react("timeline", traces, {
+        template: plotTemplate, height: 350, barmode: "overlay",
+        font: {family: "Georgia, serif", size: 14},
+        xaxis: {title: {text: "Simulation time (" + escapeText(unit) + ")"}, rangemode: "tozero"},
+        yaxis: {title: {text: "Station", standoff: 12}, autorange: "reversed", automargin: true},
+        margin: {l: 100, r: 20, t: 35, b: 70},
+        legend: {orientation: "h", x: 0, y: 1.15}
+      }, config);
+    }
+    document.getElementById("show-customer").addEventListener("click", showCustomer);
+    document.getElementById("customer-choice").addEventListener("change", showCustomer);
+    showCustomer();
+    let page = 0; const pageSize = 25;
+    // The type column appears only when some customer has a type.
+    const typed = customers.some(row => row.customer_type !== null);
+    function customerTable() {
+      const status = document.getElementById("status-choice").value;
+      const rows = customers.filter(row => status === "all" || row.status === status)
+        .map(row => row.status === "completed" || row.status === "abandoned" ? Object.assign({}, row, {station: "Left system"}) : row);
+      const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+      page = Math.min(Math.max(page, 0), pages - 1);
+      table(document.getElementById("customers"), rows.slice(page * pageSize, (page + 1) * pageSize), [
+        ["customer_id", "Customer ID"], ["source", "Source"]].concat(typed ? [["customer_type", "Type"]] : []).concat([
+        ["arrival_time", "Arrival (" + unit + ")"],
+        ["exit_time", "Exit (" + unit + ")"], ["flow_time", "Flow time (" + unit + ")"],
+        ["status", "Status"], ["station", "Current station"]
+      ]), row => { document.getElementById("customer-choice").value = row.customer_id; showCustomer(); document.getElementById("timeline").scrollIntoView({behavior: "smooth", block: "center"}); });
+      document.getElementById("page-details").textContent = "Page " + (page + 1) + " of " + pages + ". " + rows.length + " matching customers.";
+      document.getElementById("previous").disabled = page === 0;
+      document.getElementById("next").disabled = page === pages - 1;
+    }
+    document.getElementById("status-choice").addEventListener("change", () => { page = 0; customerTable(); });
+    document.getElementById("previous").addEventListener("click", () => { page -= 1; customerTable(); });
+    document.getElementById("next").addEventListener("click", () => { page += 1; customerTable(); });
+    customerTable();
+    // Each CSV line reads one row across the table's columns, in the export column order.
+    function download(name, columns, keys) {
+      const quote = value => value === null || value === undefined ? "" : '"' + String(value).replaceAll('"', '""') + '"';
+      const count = keys.length === 0 ? 0 : columns[keys[0]].length;
+      const lines = [keys.map(quote).join(",")];
+      for (let index = 0; index < count; index += 1) lines.push(keys.map(key => quote(columns[key][index])).join(","));
+      const csv = lines.join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+      const link = document.createElement("a"); link.href = url; link.download = name; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    document.getElementById("download-customers").addEventListener("click", () => download("customers.csv", result.customers, result.columns.customers));
+    document.getElementById("download-visits").addEventListener("click", () => download("visits.csv", result.visits, result.columns.visits));
+    return choicesReady;
+}
+</script>
