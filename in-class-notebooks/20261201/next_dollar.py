@@ -9,10 +9,9 @@ def _():
     import marimo as mo
     import polars as pl
 
-    import flowsim
-    from flowsim import Model, compare, gamma
+    from flowsim import Model, best_fit, compare, gamma
 
-    return Model, compare, flowsim, gamma, mo, pl
+    return Model, best_fit, compare, gamma, mo, pl
 
 
 @app.cell(hide_code=True)
@@ -27,15 +26,18 @@ def _(mo):
 def _(mo):
     mo.md("""
     ## Fit the November 3 shop data
+
+    The four "values look rounded" warnings are expected, because the shop recorded rounded times.
     """)
     return
 
 
 @app.cell
-def _(flowsim, pl):
+def _(best_fit, pl):
     releases = pl.read_csv("data/releases.csv", try_parse_dates=True)
     processing = pl.read_csv("data/processing_times.csv")
 
+    # Minutes between releases on the same day, so the overnight gap is dropped.
     release_gaps = (
         releases.sort("released")
         .with_columns(
@@ -46,10 +48,10 @@ def _(flowsim, pl):
         .drop_nulls("gap")["gap"]
         .to_numpy()
     )
-    fits = {"Release gap": flowsim.best_fit(release_gaps)}
+    fits = {"Release gap": best_fit(release_gaps)}
     for _station in ["Cut", "Weld", "Paint"]:
         _minutes = processing.filter(pl.col("station") == _station)["minutes"].to_numpy()
-        fits[_station] = flowsim.best_fit(_minutes)
+        fits[_station] = best_fit(_minutes)
 
     pl.DataFrame(
         {
@@ -78,7 +80,7 @@ def _(Model, fits):
         weld = model.station(
             name="Weld",
             capacity=weld_machines,
-            service_time=weld_time or fits["Weld"],
+            service_time=fits["Weld"] if weld_time is None else weld_time,
             buffer=rack,
             external_overflow="wait",
         )
@@ -98,7 +100,9 @@ def _(Model, fits):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Five ways to spend the budget, on 100 matched shifts
+    ## Today's line and four ways to spend the budget, on 100 matched shifts
+
+    Cut has unlimited space in front of it, and Weld and Paint each have a rack of 2 (8 in the last option).
     """)
     return
 
@@ -107,6 +111,7 @@ def _(mo):
 def _(compare, fits, gamma, line):
     weld_mean = fits["Weld"].mean
     weld_cv_halved = fits["Weld"].sd / weld_mean / 2
+    # A gamma with shape 1/cv² has coefficient of variation cv, and this scale keeps the mean.
     steadier_weld = gamma(
         shape=1 / weld_cv_halved**2,
         scale=weld_mean * weld_cv_halved**2,
@@ -131,25 +136,18 @@ def _(compare, fits, gamma, line):
 
 @app.cell
 def _(options, pl):
-    columns = []
-    for _metric in ["completed_at_close", "overtime", "mean_flow_time", "mean_wip"]:
-        columns.append(
-            options.intervals(metric=_metric).select(
-                "scenario",
-                pl.col("mean").alias(_metric),
-            )
+    (
+        options.summary.group_by("scenario", maintain_order=True)
+        .agg(pl.col("completed_at_close", "overtime", "mean_flow_time", "mean_wip").mean())
+        .select(
+            pl.col("scenario").alias("option"),
+            pl.col("completed_at_close").alias("jobs_finished_in_shift"),
+            pl.col("overtime").alias("overtime_minutes"),
+            pl.col("mean_flow_time").alias("minutes_in_line"),
+            pl.col("mean_wip").alias("jobs_in_line"),
         )
-    option_table = columns[0]
-    for _column in columns[1:]:
-        option_table = option_table.join(_column, on="scenario", maintain_order="left")
-
-    option_table.select(
-        pl.col("scenario").alias("option"),
-        pl.col("completed_at_close").alias("jobs_in_shift"),
-        pl.col("overtime").alias("overtime_minutes"),
-        pl.col("mean_flow_time").alias("minutes_per_job"),
-        pl.col("mean_wip").alias("jobs_in_line"),
-    ).with_columns(pl.exclude("option").round(1))
+        .with_columns(pl.exclude("option").round(1))
+    )
     return
 
 

@@ -19,7 +19,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Thursday's line: stations of 4, 6, and 5 minutes
+    # November 12's line: stations of 4, 6, and 5 minutes
     """)
     return
 
@@ -28,6 +28,8 @@ def _(mo):
 def _(mo):
     mo.md("""
     ## Holding exactly N jobs in the line
+
+    This is the best case with constant times, so jobs per hour = min(jobs × 60 ÷ 15, 10).
     """)
     return
 
@@ -46,7 +48,7 @@ def _(pl):
             ).alias("jobs_per_hour"),
         )
         .with_columns(
-            (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60).alias("minutes_per_job"),
+            (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60).alias("minutes_in_line"),
         )
     )
     fixed_wip
@@ -55,22 +57,28 @@ def _(pl):
 
 @app.cell
 def _(fixed_wip, px):
-    px.line(
-        fixed_wip.unpivot(
-            index="jobs_in_line",
-            on=["jobs_per_hour", "minutes_per_job"],
-        ),
-        x="jobs_in_line",
-        y="value",
-        facet_col="variable",
-        markers=True,
-        template="simple_white",
-    ).update_yaxes(
-        matches=None,
-        rangemode="tozero",
-    ).add_vline(
-        x=2.5,
-        line_dash="dash",
+    (
+        px.line(
+            fixed_wip.unpivot(
+                index="jobs_in_line",
+                on=["jobs_per_hour", "minutes_in_line"],
+            ),
+            x="jobs_in_line",
+            y="value",
+            facet_col="variable",
+            markers=True,
+            template="simple_white",
+        )
+        .update_yaxes(
+            matches=None,
+            rangemode="tozero",
+        )
+        .add_vline(
+            x=2.5,
+            line_dash="dash",
+            annotation_text="critical WIP = 2.5",
+        )
+        .for_each_annotation(lambda a: a.update(text=a.text.removeprefix("variable=")))
     )
     return
 
@@ -79,6 +87,8 @@ def _(fixed_wip, px):
 def _(mo):
     mo.md("""
     ## Releasing a job every minute, with racks of 0, 1, 2, and 4
+
+    The racks sit before S2 and S3, S1 has none, and orders that cannot enter S1 wait outside and are not counted.
     """)
     return
 
@@ -131,7 +141,7 @@ def _(pl, saturated_line):
                 warmup=480,
             )
             .summary.select(
-                pl.lit(_rack).alias("racks"),
+                pl.lit(_rack).alias("rack_size"),
                 pl.col("mean_wip").alias("jobs_in_line"),
                 (pl.col("throughput") * 60).alias("jobs_per_hour"),
                 (pl.col("mean_flow_time") - pl.col("mean_outside_wait")).alias("minutes_in_line"),
@@ -141,7 +151,17 @@ def _(pl, saturated_line):
     racks = pl.concat(rack_rows).with_columns(
         (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60).alias("littles_law_minutes"),
     )
-    racks.with_columns(pl.exclude("racks").round(2))
+    racks.with_columns(pl.exclude("rack_size").round(2))
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## Where each station's time goes, with no racks
+
+    For each station, utilization = processing_utilization + blocking_fraction.
+    """)
     return
 
 
@@ -168,9 +188,9 @@ def _(pl, saturated_line):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Thirty runs of the variability experiment
+    # Thirty seeds of the variability experiment
 
-    One machine with 4-minute jobs on average, run exactly as in Quiz 4 for seeds 1234 to 1263.
+    Saved results for one machine with 4-minute jobs, run as in Quiz 4 for seeds 1234 to 1263 (ca2 and ce2 are the arrival and processing c², and each point averages 10 runs).
     """)
     return
 
@@ -183,25 +203,28 @@ def _(pl):
 
 @app.cell
 def _(px, seeds):
-    px.line(
-        seeds,
-        x="utilization",
-        y="mean_wait",
-        color="case",
-        line_group="seed",
-        facet_col="case",
-        facet_col_wrap=3,
-        markers=True,
-        template="simple_white",
-        labels={"utilization": "Utilization", "mean_wait": "Mean wait (minutes)"},
-    ).update_traces(opacity=0.4)
+    (
+        px.line(
+            seeds,
+            x="utilization",
+            y="mean_wait",
+            line_group="seed",
+            facet_col="case",
+            facet_col_wrap=3,
+            markers=True,
+            template="simple_white",
+            labels={"utilization": "Utilization", "mean_wait": "Mean wait (minutes)"},
+        )
+        .update_traces(opacity=0.4)
+        .for_each_annotation(lambda a: a.update(text=a.text.removeprefix("case=")))
+    )
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Seed 1234, mean wait in minutes
+    ## Seed 1234 (the quiz notebook's starting seed), mean wait in minutes
     """)
     return
 
@@ -223,7 +246,9 @@ def _(pl, seeds):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Wait ≈ (ca2 + ce2)/2 × u/(1 − u) × 4 minutes, for random arrivals and random processing
+    ## Wait ≈ V × U × T, for random arrivals and random processing
+
+    Here V = (c_a² + c_e²)/2 = 1, U = u/(1 − u), and T = 4 minutes.
     """)
     return
 
@@ -238,20 +263,22 @@ def _(pl, seeds):
         .group_by("utilization")
         .agg(
             pl.col("mean_wait").mean().alias("thirty_seed_mean"),
-            pl.col("mean_wait").min().alias("lowest_seed"),
-            pl.col("mean_wait").max().alias("highest_seed"),
+            pl.col("mean_wait").min().alias("lowest_seed_mean"),
+            pl.col("mean_wait").max().alias("highest_seed_mean"),
         )
         .with_columns(
-            (pl.col("utilization") / (1 - pl.col("utilization"))).alias("u_over_1_minus_u"),
-            (1 * pl.col("utilization") / (1 - pl.col("utilization")) * 4).alias("formula"),
+            (pl.col("utilization") / (1 - pl.col("utilization"))).alias("U"),
+        )
+        .with_columns(
+            ((1 + 1) / 2 * pl.col("U") * 4).alias("formula"),
         )
         .select(
             "utilization",
-            "u_over_1_minus_u",
+            "U",
             "formula",
             "thirty_seed_mean",
-            "lowest_seed",
-            "highest_seed",
+            "lowest_seed_mean",
+            "highest_seed_mean",
         )
         .sort("utilization")
         .with_columns(pl.exclude("utilization").round(1))

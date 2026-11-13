@@ -17,9 +17,9 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Push against a limit on work in the shop
+    # Push versus a limit on work in the shop
 
-    Orders arrive about every 7.5 minutes, and the stations take 4, 6, and 5 minutes on average, so S2 is 80% busy.
+    Orders arrive about every 7.5 minutes, and the stations take 4, 6, and 5 minutes on average, so S2 is loaded to 6 ÷ 7.5 = 80%.
     """)
     return
 
@@ -27,6 +27,7 @@ def _(mo):
 @app.cell
 def _(Model, exponential):
     def shop(rack):
+        # None is push. Otherwise S1 holds one job, S2 and S3 get racks of `rack`, and the rest wait outside.
         if rack is None:
             first_limit = {}
             later_limit = {}
@@ -67,6 +68,8 @@ def _(Model, exponential):
 def _(mo):
     mo.md("""
     ## One hundred matched 8-hour shifts
+
+    Each policy sees the same 100 shifts of orders and job times, and after 480 minutes no new orders arrive while the shop finishes the rest in overtime.
     """)
     return
 
@@ -90,26 +93,19 @@ def _(compare, shop):
 
 @app.cell
 def _(pl, policies):
-    columns = []
-    for _metric in ["mean_wip", "mean_flow_time", "mean_outside_wait", "completed_at_close", "overtime"]:
-        columns.append(
-            policies.intervals(metric=_metric).select(
-                "scenario",
-                pl.col("mean").alias(_metric),
-            )
+    (
+        policies.summary.group_by("scenario", maintain_order=True)
+        .agg(pl.col("mean_wip", "mean_flow_time", "mean_outside_wait", "completed_at_close", "overtime").mean())
+        .select(
+            pl.col("scenario").alias("policy"),
+            pl.col("mean_wip").alias("jobs_in_shop"),
+            (pl.col("mean_flow_time") - pl.col("mean_outside_wait")).alias("minutes_in_shop"),
+            pl.col("mean_flow_time").alias("minutes_from_order"),
+            pl.col("completed_at_close").alias("jobs_finished_in_shift"),
+            pl.col("overtime").alias("overtime_minutes"),
         )
-    policy_table = columns[0]
-    for _column in columns[1:]:
-        policy_table = policy_table.join(_column, on="scenario", maintain_order="left")
-
-    policy_table.select(
-        pl.col("scenario").alias("policy"),
-        pl.col("mean_wip").alias("jobs_in_shop"),
-        (pl.col("mean_flow_time") - pl.col("mean_outside_wait")).alias("minutes_in_shop"),
-        pl.col("mean_flow_time").alias("minutes_from_order"),
-        pl.col("completed_at_close").alias("jobs_in_shift"),
-        pl.col("overtime").alias("overtime_minutes"),
-    ).with_columns(pl.exclude("policy").round(1))
+        .with_columns(pl.exclude("policy").round(1))
+    )
     return
 
 
