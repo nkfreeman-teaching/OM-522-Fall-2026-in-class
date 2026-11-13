@@ -11,9 +11,158 @@ def _():
     import plotly.express as px
     import polars as pl
 
-    from flowsim import Model, compare, exponential, gamma
+    from flowsim import Model
 
-    return Model, compare, exponential, gamma, mo, pl, px
+    return Model, mo, pl, px
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    # Thursday's line: stations of 4, 6, and 5 minutes
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## Holding exactly N jobs in the line
+    """)
+    return
+
+
+@app.cell
+def _(pl):
+    BOTTLENECK_RATE = 10  # jobs per hour, set by the 6-minute station
+    RAW_PROCESS_TIME = 15  # minutes, 4 + 6 + 5
+
+    fixed_wip = (
+        pl.DataFrame({"jobs_in_line": [1, 2, 3, 4, 5, 6]})
+        .with_columns(
+            pl.min_horizontal(
+                pl.col("jobs_in_line") * 60 / RAW_PROCESS_TIME,
+                pl.lit(BOTTLENECK_RATE),
+            ).alias("jobs_per_hour"),
+        )
+        .with_columns(
+            (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60).alias("minutes_per_job"),
+        )
+    )
+    fixed_wip
+    return (fixed_wip,)
+
+
+@app.cell
+def _(fixed_wip, px):
+    px.line(
+        fixed_wip.unpivot(
+            index="jobs_in_line",
+            on=["jobs_per_hour", "minutes_per_job"],
+        ),
+        x="jobs_in_line",
+        y="value",
+        facet_col="variable",
+        markers=True,
+        template="simple_white",
+    ).update_yaxes(
+        matches=None,
+        rangemode="tozero",
+    ).add_vline(
+        x=2.5,
+        line_dash="dash",
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## Releasing a job every minute, with racks of 0, 1, 2, and 4
+    """)
+    return
+
+
+@app.cell
+def _(Model):
+    def saturated_line(rack):
+        model = Model()
+        orders = model.source(
+            name="Orders",
+            interarrival=1,
+            first_arrival=0,
+        )
+        first = model.station(
+            name="S1",
+            capacity=1,
+            service_time=4,
+            buffer=0,
+            external_overflow="wait",
+        )
+        second = model.station(
+            name="S2",
+            capacity=1,
+            service_time=6,
+            buffer=rack,
+            external_overflow="wait",
+        )
+        third = model.station(
+            name="S3",
+            capacity=1,
+            service_time=5,
+            buffer=rack,
+            external_overflow="wait",
+        )
+        model.route([orders, first, second, third, model.exit])
+        return model
+
+    return (saturated_line,)
+
+
+@app.cell
+def _(pl, saturated_line):
+    rack_rows = []
+    for _rack in [0, 1, 2, 4]:
+        _summary = (
+            saturated_line(_rack)
+            .run(
+                duration=4800,
+                seed=1,
+                warmup=480,
+            )
+            .summary.select(
+                pl.lit(_rack).alias("racks"),
+                pl.col("mean_wip").alias("jobs_in_line"),
+                (pl.col("throughput") * 60).alias("jobs_per_hour"),
+                (pl.col("mean_flow_time") - pl.col("mean_outside_wait")).alias("minutes_in_line"),
+            )
+        )
+        rack_rows.append(_summary)
+    racks = pl.concat(rack_rows).with_columns(
+        (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60).alias("littles_law_minutes"),
+    )
+    racks.with_columns(pl.exclude("racks").round(2))
+    return
+
+
+@app.cell
+def _(pl, saturated_line):
+    (
+        saturated_line(0)
+        .run(
+            duration=4800,
+            seed=1,
+            warmup=480,
+        )
+        .stations.select(
+            "station",
+            "utilization",
+            "processing_utilization",
+            "blocking_fraction",
+        )
+        .with_columns(pl.exclude("station").round(2))
+    )
+    return
 
 
 @app.cell(hide_code=True)
@@ -21,9 +170,7 @@ def _(mo):
     mo.md("""
     # Thirty runs of the variability experiment
 
-    One machine, 4-minute jobs on average, five cases at six utilizations. Each seed is a different
-    random history, run exactly as in Quiz 4, which you do with your own seed after this class
-    (`make_seed_data.py` wrote the file).
+    One machine with 4-minute jobs on average, run exactly as in Quiz 4 for seeds 1234 to 1263.
     """)
     return
 
@@ -31,7 +178,6 @@ def _(mo):
 @app.cell
 def _(pl):
     seeds = pl.read_csv("data/variability-seeds.csv")
-    seeds
     return (seeds,)
 
 
@@ -46,6 +192,7 @@ def _(px, seeds):
         facet_col="case",
         facet_col_wrap=3,
         markers=True,
+        template="simple_white",
         labels={"utilization": "Utilization", "mean_wait": "Mean wait (minutes)"},
     ).update_traces(opacity=0.4)
     return
@@ -54,9 +201,7 @@ def _(px, seeds):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## One seed, as a table
-
-    Seed 1234, the notebook's default. Mean wait in minutes.
+    ## Seed 1234, mean wait in minutes
     """)
     return
 
@@ -78,9 +223,7 @@ def _(pl, seeds):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Where do the seeds disagree most?
-
-    Random arrivals and random processing, ca2 = ce2 = 1.
+    ## Wait ≈ (ca2 + ce2)/2 × u/(1 − u) × 4 minutes, for random arrivals and random processing
     """)
     return
 
@@ -94,140 +237,25 @@ def _(pl, seeds):
         )
         .group_by("utilization")
         .agg(
-            pl.col("mean_wait").min().round(1).alias("lowest"),
-            pl.col("mean_wait").median().round(1).alias("median"),
-            pl.col("mean_wait").max().round(1).alias("highest"),
+            pl.col("mean_wait").mean().alias("thirty_seed_mean"),
+            pl.col("mean_wait").min().alias("lowest_seed"),
+            pl.col("mean_wait").max().alias("highest_seed"),
+        )
+        .with_columns(
+            (pl.col("utilization") / (1 - pl.col("utilization"))).alias("u_over_1_minus_u"),
+            (1 * pl.col("utilization") / (1 - pl.col("utilization")) * 4).alias("formula"),
+        )
+        .select(
+            "utilization",
+            "u_over_1_minus_u",
+            "formula",
+            "thirty_seed_mean",
+            "lowest_seed",
+            "highest_seed",
         )
         .sort("utilization")
+        .with_columns(pl.exclude("utilization").round(1))
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""
-    # How good is the formula?
-
-    Wait ≈ (ca2 + ce2)/2 × u/(1 − u) × 4 minutes, against longer simulated runs.
-    """)
-    return
-
-
-@app.cell
-def _(gamma):
-    def spread(mean, scv):
-        # A gamma with shape 1/scv has squared coefficient of variation scv. Zero means every
-        # value equals the mean.
-        if scv == 0:
-            return mean
-        return gamma(
-            shape=1 / scv,
-            scale=mean * scv,
-        )
-
-    return (spread,)
-
-
-@app.cell
-def _(Model, pl, spread):
-    FORMULA_CASES = [
-        (0.5, 1, 1),
-        (0.8, 1, 1),
-        (0.9, 1, 1),
-        (0.9, 1, 4),
-        (0.5, 0.25, 0.25),
-        (0.9, 0.25, 0.25),
-    ]
-
-    def simulated_wait(utilization, arrival_scv, processing_scv):
-        model = Model()
-        jobs = model.source(
-            name="Jobs",
-            interarrival=spread(4 / utilization, arrival_scv),
-        )
-        machine = model.station(
-            name="Machine",
-            capacity=1,
-            service_time=spread(4, processing_scv),
-        )
-        model.route([jobs, machine, model.exit])
-        interval = model.experiment(
-            duration=20_000,
-            replications=20,
-            seed=522,
-            warmup=2_000,
-            keep_records=False,
-        ).intervals("mean_wait", station="Machine")
-        return interval["mean"][0]
-
-    def formula_wait(utilization, arrival_scv, processing_scv):
-        return (arrival_scv + processing_scv) / 2 * utilization / (1 - utilization) * 4
-
-    pl.DataFrame(
-        [
-            {
-                "u": utilization,
-                "ca2": arrival_scv,
-                "ce2": processing_scv,
-                "formula": round(formula_wait(utilization, arrival_scv, processing_scv), 1),
-                "simulated": round(simulated_wait(utilization, arrival_scv, processing_scv), 1),
-            }
-            for utilization, arrival_scv, processing_scv in FORMULA_CASES
-        ]
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""
-    # Propagation
-
-    Jobs arrive about every 5 minutes. Station 1 takes 4.5 minutes on average, and only its
-    variability changes. Station 2 takes 4 minutes and never changes.
-    """)
-    return
-
-
-@app.cell
-def _(Model, exponential, spread):
-    def two_stations(first_scv):
-        model = Model()
-        jobs = model.source(
-            name="Jobs",
-            interarrival=exponential(mean=5),
-        )
-        first = model.station(
-            name="Station 1",
-            capacity=1,
-            service_time=spread(4.5, first_scv),
-        )
-        second = model.station(
-            name="Station 2",
-            capacity=1,
-            service_time=spread(4, 0.25),
-        )
-        model.route([jobs, first, second, model.exit])
-        return model
-
-    return (two_stations,)
-
-
-@app.cell
-def _(compare, two_stations):
-    propagation = compare(
-        scenarios={
-            "Station 1 regular (ce2 = 0)": two_stations(0),
-            "Station 1 random (ce2 = 1)": two_stations(1),
-            "Station 1 very irregular (ce2 = 4)": two_stations(4),
-        },
-        duration=20_000,
-        replications=20,
-        seed=522,
-        warmup=2_000,
-        keep_records=False,
-    )
-    propagation.intervals("mean_wait", station="Station 2").select("scenario", "mean", "lower", "upper")
     return
 
 

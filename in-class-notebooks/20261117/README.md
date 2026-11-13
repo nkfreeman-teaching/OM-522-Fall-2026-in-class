@@ -5,7 +5,7 @@ with nothing else installed.
 
 | File | Open it with | What it is |
 |---|---|---|
-| `variability.py` | `pixi run class` | Thirty runs of the variability experiment that Quiz 4 uses, the waiting-time formula against simulation, and one station's variability reaching the next |
+| `variability.py` | `pixi run class` | November 12's 4, 6, and 5 minute line held at 1 to 6 jobs and released every minute, then thirty runs of the variability experiment that Quiz 4 uses, against the waiting-time formula |
 | `make_seed_data.py` | `pixi run python make_seed_data.py` | Writes `data/variability-seeds.csv`: the Quiz 4 cases for seeds 1234 to 1263 |
 
 Run `pixi install` once, from this folder, before the first command.
