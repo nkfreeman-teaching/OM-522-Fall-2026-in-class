@@ -29,7 +29,7 @@ def _(mo):
     mo.md("""
     ## Holding exactly N jobs in the line
 
-    This is the best case with constant times, so jobs per hour = min(jobs × 60 ÷ 15, 10).
+    With constant times, jobs per hour = min(jobs × 60 ÷ 15, 10).
     """)
     return
 
@@ -68,17 +68,20 @@ def _(fixed_wip, px):
             facet_col="variable",
             markers=True,
             template="simple_white",
+            labels={"jobs_in_line": "Jobs held in the line (N)", "value": ""},
         )
         .update_yaxes(
             matches=None,
             rangemode="tozero",
+        )
+        .for_each_annotation(
+            lambda a: a.update(text=a.text.removeprefix("variable=").replace("_", " ").capitalize()),
         )
         .add_vline(
             x=2.5,
             line_dash="dash",
             annotation_text="critical WIP = 2.5",
         )
-        .for_each_annotation(lambda a: a.update(text=a.text.removeprefix("variable=")))
     )
     return
 
@@ -190,7 +193,7 @@ def _(mo):
     mo.md("""
     # Thirty seeds of the variability experiment
 
-    Saved results for one machine with 4-minute jobs, run as in Quiz 4 for seeds 1234 to 1263 (ca2 and ce2 are the arrival and processing c², and each point averages 10 runs).
+    Saved results for one machine with 4-minute jobs, run as in Quiz 4 for seeds 1234 to 1263 (ca2 and ce2 are the arrival and processing c², with 0 regular, 1 random, and 4 very irregular, and each point averages 10 runs).
     """)
     return
 

@@ -60,8 +60,19 @@ def _(best_fit, pl):
             "jobs_per_hour": [60 / fit.mean for fit in fits.values()],
             "cv": [fit.sd / fit.mean for fit in fits.values()],
         }
-    ).with_columns(pl.exclude("input").round(2))
+    ).with_columns(
+        pl.col("mean_minutes", "cv").round(2),
+        pl.col("jobs_per_hour").round(1),
+    )
     return (fits,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## The Cut, Weld, and Paint line
+    """)
+    return
 
 
 @app.cell

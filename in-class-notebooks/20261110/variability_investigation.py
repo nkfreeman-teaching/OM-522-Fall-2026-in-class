@@ -13,7 +13,7 @@ def _():
 
     from flowsim import Model
 
-    # Replace with the last four digits of your CWID.
+    # Replace with the last four digits of your CWID, without leading zeros (0042 becomes 42).
     SEED = 1234
     return Model, SEED, mo, pl, px
 
@@ -23,7 +23,7 @@ def _(mo):
     mo.md("""
     # The single-machine model
 
-    Jobs arrive at one machine, wait in line, and leave. Each job takes 4 minutes on average.
+    Jobs arrive at one machine, wait in line when it is busy, and take 4 minutes each on average.
     """)
     return
 
@@ -60,6 +60,8 @@ def _(Model):
 def _(mo):
     mo.md("""
     ## One day on the machine
+
+    One 8-hour day at 50% utilization, with random arrivals and random processing.
     """)
     return
 
@@ -113,8 +115,17 @@ def _(one_station, pl):
 
 
 @app.cell
-def _(SEED, measure):
-    measure(0.5, 1, 1, SEED)
+def _(SEED, measure, pl):
+    pl.DataFrame(
+        [
+            measure(
+                utilization=0.5,
+                arrival_scv=1,
+                processing_scv=1,
+                seed=SEED,
+            ),
+        ]
+    )
     return
 
 

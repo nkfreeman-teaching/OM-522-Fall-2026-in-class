@@ -67,9 +67,9 @@ def _(Model, exponential):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## One hundred matched 8-hour shifts
+    ## One hundred matched 8-hour shifts, finished in overtime
 
-    Each policy sees the same 100 shifts of orders and job times, and after 480 minutes no new orders arrive while the shop finishes the rest in overtime.
+    Push releases each order into the shop when it arrives, and a limit admits an order to S1 only when S1 is free, with racks of 2 or 1 at S2 and S3.
     """)
     return
 
